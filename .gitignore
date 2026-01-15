@@ -1,0 +1,14 @@
+# Python 캐시
+__pycache__/
+*.py[cod]
+
+# 가상환경
+venv/
+.env
+
+# 데이터베이스 (GitHub에 DB 원본을 올리고 싶지 않을 때)
+# 배포 서비스에서 DB를 직접 관리할 예정이라면 주석 처리하세요.
+# *.duckdb
+
+# Streamlit 설정
+.streamlit/
