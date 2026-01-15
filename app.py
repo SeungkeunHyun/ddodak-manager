@@ -2,7 +2,41 @@ import streamlit as st
 import duckdb
 import pandas as pd
 from datetime import datetime, timezone, timedelta
+import streamlit_authenticator as stauth
 
+# --- 사용자 인증 설정 ---
+# 아이디: ddodak_admin / 비번: ddodak2_2016! 의 해싱 결과입니다.
+credentials = {
+    "usernames": {
+        "ddodak_admin": {
+            "name": "관리자",
+            "password": "$2b$12$26eJr8zlp73HWwLlP7xbAeArmA844B0iRAc39VanX.7ezIZ/abbiq" # 해싱된 비밀번호
+        }
+    }
+}
+
+authenticator = stauth.Authenticate(
+    credentials,
+    "ddodak_cookie", # 쿠키 이름
+    "ddodak_key",    # 서명 키
+    cookie_expiry_days=30
+)
+
+# 로그인 화면 출력
+name, authentication_status, username = authenticator.login('main')
+
+if authentication_status:
+    # --- 로그인 성공: 기존 앱 로직 시작 ---
+    authenticator.logout('Logout', 'sidebar')
+    st.sidebar.write(f"환영합니다, {name}님!")
+    
+    # [이 아래에 기존의 choice = st.sidebar.radio(...) 부터의 코드를 모두 넣으세요]
+    # (주의: 기존 코드 전체를 이 if문 안으로 한 칸씩 들여쓰기 해야 합니다.)
+
+elif authentication_status == False:
+    st.error('아이디 또는 비밀번호가 일치하지 않습니다.')
+elif authentication_status == None:
+    st.warning('아이디와 비밀번호를 입력해 주세요.')
 # 1. 환경 설정 (한국 시간)
 KST = timezone(timedelta(hours=9))
 
