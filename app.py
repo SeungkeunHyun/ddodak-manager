@@ -23,9 +23,9 @@ authenticator = stauth.Authenticate(
 )
 
 # 로그인 화면 출력
-name, authentication_status, username = authenticator.login('main')
+authenticator.login(location='main')
 
-if authentication_status:
+if st.session_state["authentication_status"]:
     # --- 로그인 성공: 기존 앱 로직 시작 ---
     authenticator.logout('Logout', 'sidebar')
     st.sidebar.write(f"환영합니다, {name}님!")
@@ -33,9 +33,9 @@ if authentication_status:
     # [이 아래에 기존의 choice = st.sidebar.radio(...) 부터의 코드를 모두 넣으세요]
     # (주의: 기존 코드 전체를 이 if문 안으로 한 칸씩 들여쓰기 해야 합니다.)
 
-elif authentication_status == False:
+elif st.session_state["authentication_status"] is False:
     st.error('아이디 또는 비밀번호가 일치하지 않습니다.')
-elif authentication_status == None:
+elif st.session_state["authentication_status"] is None:
     st.warning('아이디와 비밀번호를 입력해 주세요.')
 # 1. 환경 설정 (한국 시간)
 KST = timezone(timedelta(hours=9))
