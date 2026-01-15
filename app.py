@@ -35,8 +35,10 @@ if st.session_state["authentication_status"]:
 
 elif st.session_state["authentication_status"] is False:
     st.error('아이디 또는 비밀번호가 일치하지 않습니다.')
+    st.stop()
 elif st.session_state["authentication_status"] is None:
     st.warning('아이디와 비밀번호를 입력해 주세요.')
+    st.stop()
 # 1. 환경 설정 (한국 시간)
 KST = timezone(timedelta(hours=9))
 
