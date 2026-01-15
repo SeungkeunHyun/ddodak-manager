@@ -28,7 +28,7 @@ authenticator.login(location='main')
 if st.session_state["authentication_status"]:
     # --- 로그인 성공: 기존 앱 로직 시작 ---
     authenticator.logout('Logout', 'sidebar')
-    st.sidebar.write(f"환영합니다, {name}님!")
+    st.sidebar.write(f"환영합니다, {st.session_state['name']}님!")
     
     # [이 아래에 기존의 choice = st.sidebar.radio(...) 부터의 코드를 모두 넣으세요]
     # (주의: 기존 코드 전체를 이 if문 안으로 한 칸씩 들여쓰기 해야 합니다.)
