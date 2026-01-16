@@ -235,13 +235,6 @@ elif choice == "🏃 참가 기록":
 # ---------------------------------------------------------
 elif choice == "📊 보고서 생성":
     st.header("📊 활동 결과 보고서")
-    st.markdown("""
-        <a href="https://www.band.us/band/85157163/post/4765" target="_blank" style="text-decoration: none;">
-            <div style="background-color: #2e7d32; color: white; padding: 10px; border-radius: 5px; text-align: center; font-weight: bold; margin-bottom: 20px;">
-                📜 또닥또닥 회칙 확인하기 (네이버 밴드)
-            </div>
-        </a>
-    """, unsafe_allow_html=True)
     target_month = st.text_input("📅 대상 월 선택", value=datetime.now(KST).strftime('%Y-%m'))
     
     if st.button("📝 보고서 생성", use_container_width=True):
@@ -263,7 +256,8 @@ elif choice == "📊 보고서 생성":
             # --- 리포트 텍스트 구성 (줄바꿈 \n\n 적용) ---
             report_text = f"⛰️ **{target_month} 활동 요약 보고서**\n\n"
             report_text += "---\n\n"
-            
+            report_text += "회칙 확인하기 \n"
+            report_text += "https://www.band.us/band/85157163/post/4765  \n\n"
             report_text += "📂 **[이달의 산행 내역]**\n\n"
             if not ev_det.empty:
                 for (d, title), group in ev_det.groupby(['d', 'title'], sort=False):
