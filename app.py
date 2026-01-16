@@ -172,35 +172,63 @@ elif choice == "📅 이벤트 관리":
             st.rerun()
 
 # ---------------------------------------------------------
-# 4. 참가 기록 (참석자 체크 및 저장)
+# 4. 참가 기록 (스크롤바 완벽 수정 및 인원 표시)
 # ---------------------------------------------------------
 elif choice == "🏃 참가 기록":
-    st.header("🏃 산행 참가자 체크")
+    st.header("🏃 공지 참가자 체크")
+    
+    # --- [스크롤바 강제 생성을 위한 CSS 고도화] ---
+    st.markdown("""
+        <style>
+            /* 멀티셀렉트의 태그(항목)가 쌓이는 컨테이너 높이 제한 */
+            div[data-baseweb="select"] > div:first-child {
+                max-height: 200px !important;
+                overflow-y: auto !important;
+                display: block !important;
+            }
+            /* 개별 태그(X버튼 있는 항목)들의 간격 조정 */
+            div[data-baseweb="tag"] {
+                margin: 2px !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     with get_db_connection() as conn:
         ev_list = conn.execute("SELECT event_id, date, title FROM events ORDER BY date DESC").df()
         mb_list = conn.execute("SELECT user_no, birth_year, name, area FROM members WHERE role <> 'exmember' ORDER BY birth_year, name").df()
     
     if not ev_list.empty:
         ev_list['label'] = ev_list.apply(lambda r: f"{r['date']} | {r['title']}", axis=1)
-        sel_ev = st.selectbox("산행 선택", ev_list['label'].tolist(), key="sel_ev")
+        sel_ev = st.selectbox("공지 선택", ev_list['label'].tolist(), key="sel_ev")
         sel_ev_id = str(ev_list.loc[ev_list['label'] == sel_ev, 'event_id'].iloc[0])
 
         with get_db_connection() as conn:
             existing = conn.execute("SELECT user_no FROM attendees WHERE event_id = ?", (sel_ev_id,)).df()['user_no'].tolist()
         
         mb_list['display'] = mb_list.apply(lambda r: f"{r['birth_year']}/{r['name']}/{r['area']}", axis=1)
-        selected = st.multiselect("참가자 선택", options=mb_list['display'].tolist(), 
-                                    default=mb_list[mb_list['user_no'].isin(existing)]['display'].tolist(), 
-                                    key=f"ms_{sel_ev_id}")
         
-        if st.button("✅ 참석 명단 저장"):
+        selected = st.multiselect(
+            "참가자 선택", 
+            options=mb_list['display'].tolist(), 
+            default=mb_list[mb_list['user_no'].isin(existing)]['display'].tolist(), 
+            key=f"ms_{sel_ev_id}"
+        )
+        
+        # --- [추가: 총 참가 인원 표시] ---
+        total_count = len(selected)
+        st.markdown(f"### 👥 총 참가 인원: `{total_count}`명")
+        # -------------------------------
+
+        if st.button("✅ 참석 명단 저장", use_container_width=True, type="primary"):
             with get_db_connection() as conn:
                 conn.execute("DELETE FROM attendees WHERE event_id = ?", (sel_ev_id,))
                 for val in selected:
                     u_no = mb_list.loc[mb_list['display'] == val, 'user_no'].iloc[0]
                     conn.execute("INSERT INTO attendees (event_id, user_no) VALUES (?, ?)", (sel_ev_id, u_no))
-            st.success("참석 명단이 저장되었습니다.")
-    else: st.warning("이벤트를 먼저 등록하세요.")
+            st.success(f"저장 완료! 현재 총 {total_count}명이 등록되었습니다.")
+            
+    else: 
+        st.warning("이벤트를 먼저 등록하세요.")
 
 # ---------------------------------------------------------
 # 5. 보고서 생성 (줄바꿈 및 가독성 강화 버전)
