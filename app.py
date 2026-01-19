@@ -247,7 +247,7 @@ elif choice == "📊 보고서 생성":
                     JOIN attendees a ON e.event_id = a.event_id 
                     JOIN members m ON a.user_no = m.user_no
                     WHERE strftime('%Y-%m', CAST(e.date AS DATE)) = '{target_month}'
-                    ORDER BY e.date ASC
+                    ORDER BY e.date, m.birth_year, m.name, m.area ASC
                 """).df()
 
             df_rep['획득점수'] = df_rep['획득점수'].fillna(0).astype(int)
