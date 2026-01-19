@@ -46,10 +46,21 @@ def get_db_connection():
     # 데이터베이스 파일 연결 (read_only=False로 수정 가능 모드)
     return duckdb.connect('ddodak.duckdb', read_only=False)
 
+
 st.set_page_config(page_title="또닥또닥 산악회 관리시스템", layout="wide")
 st.sidebar.title("⛰️ 메뉴")
-choice = st.sidebar.radio("메뉴 이동", ["🏠 홈", "👥 회원 관리", "📅 이벤트 관리", "🏃 참가 기록", "📊 보고서 생성"], key="nav_main")
+query_params = st.query_params
+default_menu = query_params.get("menu", "🏠 홈") # 기본값은 홈
+menu_options = ["🏠 홈", "👥 회원 관리", "📅 이벤트 관리", "🏃 참가 기록", "📊 보고서 생성"]
 
+# URL 파라미터에 따라 인덱스 찾기 (잘못된 파라미터면 0번 인덱스)
+try:
+    default_index = menu_options.index(default_menu)
+except ValueError:
+    default_index = 0
+choice = st.sidebar.radio("메뉴 이동", menu_options, index=default_index)
+if choice != query_params.get("menu"):
+    st.query_params["menu"] = choice
 # ---------------------------------------------------------
 # 1. 홈
 # ---------------------------------------------------------
