@@ -242,18 +242,23 @@ elif choice == "🏃 참가 기록":
         st.warning("이벤트를 먼저 등록하세요.")
 
 # ---------------------------------------------------------
-# 5. 보고서 생성 (줄바꿈 및 가독성 강화 버전)
+# 5. 보고서 생성 (앨범 URL 및 월간 요약 통합 버전)
 # ---------------------------------------------------------
 elif choice == "📊 보고서 생성":
     st.header("📊 활동 결과 보고서")
+    
+    # 상단 회칙 링크 (UI용)
+    st.info("🔗 [또닥또닥 회칙 확인하기](https://www.band.us/band/85157163/post/4765)")
+    
     target_month = st.text_input("📅 대상 월 선택", value=datetime.now(KST).strftime('%Y-%m'))
     
     if st.button("📝 보고서 생성", use_container_width=True):
         try:
             with get_db_connection() as conn:
                 df_rep = conn.execute("SELECT * FROM v_member_attendance_summary").df()
+                # 쿼리에 e.album_url 추가
                 ev_det = conn.execute(f"""
-                    SELECT CAST(e.date AS DATE) as d, e.title, m.name, m.birth_year, m.area
+                    SELECT CAST(e.date AS DATE) as d, e.title, e.album_url, m.name, m.birth_year, m.area
                     FROM events e 
                     JOIN attendees a ON e.event_id = a.event_id 
                     JOIN members m ON a.user_no = m.user_no
@@ -264,17 +269,24 @@ elif choice == "📊 보고서 생성":
             df_rep['획득점수'] = df_rep['획득점수'].fillna(0).astype(int)
             df_rep['현재포인트'] = df_rep['현재포인트'].fillna(0).astype(int)
             
-            # --- 리포트 텍스트 구성 (줄바꿈 \n\n 적용) ---
+            # --- 리포트 텍스트 구성 ---
             report_text = f"⛰️ **{target_month} 활동 요약 보고서**\n\n"
             report_text += "---\n\n"
-            report_text += "회칙 확인하기 \n"
-            report_text += "https://www.band.us/band/85157163/post/4765  \n\n"
+            report_text += "📜 **회칙 확인하기**\n"
+            report_text += "https://www.band.us/band/85157163/post/4765 \n\n"
+            
             report_text += "📂 **[이달의 산행 내역]**\n\n"
             if not ev_det.empty:
+                # groupby에 album_url을 포함하여 링크 정보 유지
                 for (d, title), group in ev_det.groupby(['d', 'title'], sort=False):
                     names = group['name'].tolist()
+                    album = group['album_url'].iloc[0]
                     report_text += f"📍 **{d.strftime('%m/%d')} | {title}**  \n"
-                    report_text += f"└ 참석({len(names)}명): {', '.join(names)}  \n\n"
+                    report_text += f"└ 참석({len(names)}명): {', '.join(names)}  \n"
+                    # 앨범 링크가 존재할 경우에만 추가
+                    if album and str(album).strip() not in ["None", ""]:
+                        report_text += f"└ 📸 사진첩: {album}  \n"
+                    report_text += "\n" # 행사 간 간격
             else:
                 report_text += "이달의 기록이 없습니다.  \n\n"
             
@@ -298,7 +310,6 @@ elif choice == "📊 보고서 생성":
             report_text += f"🌱 신입 미참석:  \n{', '.join(new_warning) if new_warning else '없음'}  \n\n"
             
             report_text += "🔢 **[회원별 점수 현황]**\n\n"
-            # 마크다운 표 앞뒤로 반드시 빈 줄(\n\n)이 있어야 깨지지 않습니다.
             report_text += df_rep[['MemberID', '획득점수', '현재포인트', '회원상태']].rename(columns={'획득점수':'당월','현재포인트':'누적','회원상태':'상태'}).to_markdown(index=False)
             report_text += "\n\n---\n"
 
@@ -306,11 +317,12 @@ elif choice == "📊 보고서 생성":
             t1, t2 = st.tabs(["📋 밴드 복사용 (텍스트)", "👀 미리보기 (시각화)"])
             
             with t1:
-                st.info("박스 안의 텍스트를 복사하세요.")
-                st.code(report_text.replace("**", ""), language="text") # 복사용은 강조 표시 제거
+                st.info("아래 박스 안의 내용을 복사하여 밴드에 게시하세요.")
+                # 밴드 복사용은 가독성을 위해 강조 기호(**) 제거 및 앨범 링크 포함 유지
+                clean_report = report_text.replace("**", "")
+                st.code(clean_report, language="text")
             
             with t2:
-                # 마크다운 렌더링 (st.markdown은 \n\n을 인식하여 단락을 나눕니다)
                 st.markdown(report_text)
 
         except Exception as e:
