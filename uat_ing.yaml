@@ -1,0 +1,160 @@
+apiVersion: v1
+items:
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"nginx.ingress.kubernetes.io/proxy-body-size":"320m","nginx.ingress.kubernetes.io/proxy-buffer-size":"32k","nginx.ingress.kubernetes.io/proxy-read-timeout":"300","nginx.ingress.kubernetes.io/proxy-send-timeout":"300","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"ingress-uat","namespace":"uat"},"spec":{"ingressClassName":"external-ingress-nginx","rules":[{"host":"sol-uat.intuitioncloud.io","http":{"paths":[{"backend":{"service":{"name":"web","port":{"number":80}}},"path":"/","pathType":"Prefix"}]}},{"host":"sol-uat.auth.intuitioncloud.io","http":{"paths":[{"backend":{"service":{"name":"auth","port":{"number":80}}},"path":"/","pathType":"Prefix"}]}},{"host":"sol-uat.api.intuitioncloud.io","http":{"paths":[{"backend":{"service":{"name":"api","port":{"number":80}}},"path":"/","pathType":"Prefix"}]}},{"host":"sol-uat.kibana.intuitioncloud.io","http":{"paths":[{"backend":{"service":{"name":"kibana-kb-http","port":{"number":5601}}},"path":"/","pathType":"Prefix"}]}},{"host":"sol-uat.data.intuitioncloud.io","http":{"paths":[{"backend":{"service":{"name":"data","port":{"number":80}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["sol-uat.intuitioncloud.io","sol-uat.auth.intuitioncloud.io","sol-uat.api.intuitioncloud.io","sol-uat.data.intuitioncloud.io","sol-uat.kibana.intuitioncloud.io"],"secretName":"tls-ingress-intuition"}]}}
+      nginx.ingress.kubernetes.io/proxy-body-size: 320m
+      nginx.ingress.kubernetes.io/proxy-buffer-size: 32k
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2022-08-10T06:53:17Z"
+    generation: 2
+    name: ingress-uat
+    namespace: uat
+    resourceVersion: "618891581"
+    uid: ad6dabc4-1793-4abb-b67b-f2fd55f238da
+  spec:
+    ingressClassName: external-ingress-nginx
+    rules:
+    - host: sol-uat.intuitioncloud.io
+      http:
+        paths:
+        - backend:
+            service:
+              name: web
+              port:
+                number: 80
+          path: /
+          pathType: Prefix
+    - host: sol-uat.auth.intuitioncloud.io
+      http:
+        paths:
+        - backend:
+            service:
+              name: auth
+              port:
+                number: 80
+          path: /
+          pathType: Prefix
+    - host: sol-uat.api.intuitioncloud.io
+      http:
+        paths:
+        - backend:
+            service:
+              name: api
+              port:
+                number: 80
+          path: /
+          pathType: Prefix
+    - host: sol-uat.kibana.intuitioncloud.io
+      http:
+        paths:
+        - backend:
+            service:
+              name: kibana-kb-http
+              port:
+                number: 5601
+          path: /
+          pathType: Prefix
+    - host: sol-uat.data.intuitioncloud.io
+      http:
+        paths:
+        - backend:
+            service:
+              name: data
+              port:
+                number: 80
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - sol-uat.intuitioncloud.io
+      - sol-uat.auth.intuitioncloud.io
+      - sol-uat.api.intuitioncloud.io
+      - sol-uat.data.intuitioncloud.io
+      - sol-uat.kibana.intuitioncloud.io
+      secretName: tls-ingress-intuition
+  status:
+    loadBalancer:
+      ingress:
+      - ip: 4.237.185.196
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"nginx.ingress.kubernetes.io/proxy-body-size":"320m","nginx.ingress.kubernetes.io/proxy-buffer-size":"32k","nginx.ingress.kubernetes.io/proxy-read-timeout":"300","nginx.ingress.kubernetes.io/proxy-send-timeout":"300","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"ingress-uat-support","namespace":"uat"},"spec":{"ingressClassName":"internal-ingress-nginx","rules":[{"host":"sol.uat.ingenuous.local","http":{"paths":[{"backend":{"service":{"name":"web-ingenuous","port":{"number":80}}},"path":"/","pathType":"Prefix"}]}},{"host":"sol.auth.uat.ingenuous.local","http":{"paths":[{"backend":{"service":{"name":"auth-ingenuous","port":{"number":80}}},"path":"/","pathType":"Prefix"}]}},{"host":"sol.kibana.uat.ingenuous.local","http":{"paths":[{"backend":{"service":{"name":"kibana-kb-http","port":{"number":5601}}},"path":"/","pathType":"Prefix"}]}},{"host":"sol.nifi.uat.ingenuous.local","http":{"paths":[{"backend":{"service":{"name":"nifi","port":{"number":8080}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["sol.uat.ingenuous.local","sol.auth.uat.ingenuous.local","sol.kibana.uat.ingenuous.local","sol.nifi.uat.ingenuous.local"],"secretName":"ingress-tls-csi"}]}}
+      nginx.ingress.kubernetes.io/proxy-body-size: 320m
+      nginx.ingress.kubernetes.io/proxy-buffer-size: 32k
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2024-08-22T00:45:07Z"
+    generation: 4
+    name: ingress-uat-support
+    namespace: uat
+    resourceVersion: "796717351"
+    uid: 29757c5c-2e17-4731-87af-b9bd16d623a5
+  spec:
+    ingressClassName: internal-ingress-nginx
+    rules:
+    - host: sol.uat.ingenuous.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: web-ingenuous
+              port:
+                number: 80
+          path: /
+          pathType: Prefix
+    - host: sol.auth.uat.ingenuous.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: auth-ingenuous
+              port:
+                number: 80
+          path: /
+          pathType: Prefix
+    - host: sol.kibana.uat.ingenuous.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: kibana-kb-http
+              port:
+                number: 5601
+          path: /
+          pathType: Prefix
+    - host: sol.nifi.uat.ingenuous.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: nifi
+              port:
+                number: 8080
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - sol.uat.ingenuous.local
+      - sol.auth.uat.ingenuous.local
+      - sol.kibana.uat.ingenuous.local
+      - sol.nifi.uat.ingenuous.local
+      secretName: ingress-tls-csi
+  status:
+    loadBalancer:
+      ingress:
+      - ip: 10.11.3.10
+kind: List
+metadata:
+  resourceVersion: ""
