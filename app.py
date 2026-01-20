@@ -72,26 +72,59 @@ if choice == "🏠 홈":
     st.info("💡 모든 데이터는 실시간으로 반영되며, 보고서는 v_member_attendance_summary 뷰를 기반으로 생성됩니다.")
 
 # ---------------------------------------------------------
-# 2. 회원 관리 (FK 제약 조건 우회 - 동적 컬럼 업데이트)
+# 2. 회원 관리 (필터링 + 최신 참석일 갱신 + 동적 업데이트)
 # ---------------------------------------------------------
 elif choice == "👥 회원 관리":
     st.header("👥 회원 정보 관리")
+
     with get_db_connection() as conn:
+        # A. 최신 참석일(last_attended) 자동 동기화 쿼리
         conn.execute("""
-    UPDATE members AS m
-    SET last_attended = t.last_attended
-    FROM (
-    SELECT a.user_no, MAX(e.date) AS last_attended
-    FROM attendees AS a
-    JOIN events AS e ON e.event_id = a.event_id
-    GROUP BY a.user_no
-    ) AS t
-    WHERE t.user_no = m.user_no;
-                     """)
-        df_m = conn.execute("SELECT * FROM members Order by birth_year, name, area").df()
+            UPDATE members AS m
+            SET last_attended = t.max_date
+            FROM (
+                SELECT a.user_no, MAX(e.date) AS max_date
+                FROM attendees AS a
+                JOIN events AS e ON e.event_id = a.event_id
+                GROUP BY a.user_no
+            ) AS t
+            WHERE t.user_no = m.user_no;
+        """)
+        # B. 전체 회원 데이터 로드 (필터 옵션 추출용)
+        df_all = conn.execute("SELECT * FROM members WHERE role <> 'exmember' order by birth_year, name, area").df()
+
+    # --- [필터링 UI 섹션] ---
+    f_col1, f_col2 = st.columns(2)
+    with f_col1:
+        years_options = sorted(df_all['birth_year'].unique().tolist())
+        sel_years = st.multiselect("🎂 생년 필터", options=years_options, placeholder="전체 보기")
+    with f_col2:
+        areas_options = sorted(df_all['area'].unique().tolist())
+        sel_areas = st.multiselect("📍 지역 필터", options=areas_options, placeholder="전체 보기")
+
+    # 데이터 필터링 적용
+    df_m = df_all.copy()
+    if sel_years:
+        df_m = df_m[df_m['birth_year'].isin(sel_years)]
+    if sel_areas:
+        df_m = df_m[df_m['area'].isin(sel_areas)]
+
+    st.caption(f"🔍 검색 결과: {len(df_m)}명")
+
+    # --- [데이터 에디터 섹션] ---
+    # last_attended는 자동 갱신되므로 편집 비활성화(disabled) 권장
+    updated_m = st.data_editor(
+        df_m, 
+        num_rows="dynamic", 
+        use_container_width=True, 
+        hide_index=True, 
+        key="m_edit",
+        column_config={
+            "last_attended": st.column_config.Column(disabled=True, help="참가 기록 시 자동 갱신됩니다.")
+        }
+    )
     
-    updated_m = st.data_editor(df_m, num_rows="dynamic", use_container_width=True, hide_index=True, key="m_edit")
-    
+    # --- [저장 로직 섹션] ---
     if st.button("💾 회원 정보 업데이트"):
         if not updated_m.empty:
             with get_db_connection() as conn:
@@ -102,84 +135,106 @@ elif choice == "👥 회원 관리":
                     existing = conn.execute("SELECT * FROM members WHERE user_no = ?", (u_id,)).df()
                     
                     if not existing.empty:
-                        # 2. 실제로 값이 바뀐 컬럼만 추출
+                        # 2. 변경된 컬럼만 추출
                         changed_cols = []
                         params = []
                         for col in updated_m.columns:
-                            if col == 'user_no': continue  # PK(회원번호)는 절대 수정 대상(SET)에 넣지 않음
+                            if col in ['user_no', 'last_attended']: continue # PK와 자동갱신 컬럼 제외
                             
                             val_new = row[col]
                             val_old = existing.iloc[0][col]
                             
-                            # 데이터 비교 (문자열 변환 후 비교하여 형식 차이 무시)
                             if str(val_new) != str(val_old):
                                 changed_cols.append(f'"{col}" = ?')
                                 params.append(val_new)
                         
-                        # 3. 변경사항이 있을 때만 UPDATE 실행
+                        # 3. 변경사항이 있을 때만 UPDATE
                         if changed_cols:
                             sql = f"UPDATE members SET {', '.join(changed_cols)} WHERE user_no = ?"
                             params.append(u_id)
                             conn.execute(sql, tuple(params))
+                    # 기존의 백슬래시가 포함된 복잡한 f-string을 아래와 같이 간결하게 수정합니다.
                     else:
                         # 4. 신규 회원 INSERT
                         cols = updated_m.columns.tolist()
                         quoted_cols = [f'"{c}"' for c in cols]
                         placeholders = ", ".join(["?"] * len(cols))
+                        
                         sql = f'INSERT INTO members ({", ".join(quoted_cols)}) VALUES ({placeholders})'
                         conn.execute(sql, tuple(row[cols]))
             
-            st.success("회원 정보가 참조 무결성을 유지하며 안전하게 저장되었습니다.")
+            st.success("필터링된 상태에서도 회원 정보가 안전하게 저장되었습니다.")
             st.rerun()
 
-# ---------------------------------------------------------
-# 3. 일정 관리 (FK 제약 조건 우회 - 동적 컬럼 업데이트)
-# ---------------------------------------------------------
 elif choice == "📅 이벤트 관리":
     st.header("📅 산행 일정 관리")
+    
+    # --- 필터링 섹션 ---
+    col1, col2 = st.columns(2)
+    with col1:
+        years = [str(datetime.now().year - i) for i in range(3)] # 최근 3년
+        f_year = st.selectbox("연도 선택", ["전체"] + years)
+    with col2:
+        f_month = st.selectbox("월 선택", ["전체"] + [f"{i:02d}" for i in range(1, 13)])
+
+    # DB 조회 쿼리 구성
+    query = "SELECT * FROM events WHERE 1=1"
+    if f_year != "전체":
+        query += f" AND strftime('%Y', date) = '{f_year}'"
+    if f_month != "전체":
+        query += f" AND strftime('%m', date) = '{f_month}'"
+    query += " ORDER BY date DESC"
+
     with get_db_connection() as conn:
-        df_e = conn.execute("SELECT * FROM events ORDER BY date DESC").df()
+        df_e = conn.execute(query).df()
     
-    updated_e = st.data_editor(df_e, num_rows="dynamic", use_container_width=True, hide_index=True, key="e_edit")
+    # 앨범 URL 등 컬럼 설정 추가
+    updated_e = st.data_editor(
+        df_e, 
+        num_rows="dynamic", 
+        use_container_width=True, 
+        hide_index=True, 
+        key="e_edit",
+        column_config={
+            "album_url": st.column_config.LinkColumn("앨범 URL"),
+            "url": st.column_config.LinkColumn("공지 URL"),
+            "date": st.column_config.DateColumn("날짜")
+        }
+    )
     
+    # [저장 로직은 기존과 동일하되 st.rerun()으로 필터 유지]
     if st.button("💾 일정 업데이트"):
         if not updated_e.empty:
             with get_db_connection() as conn:
                 for _, row in updated_e.iterrows():
                     e_id = str(row['event_id'])
-                    
-                    # 1. 기존 데이터 로드 (비교용)
                     existing = conn.execute("SELECT * FROM events WHERE event_id = ?", (e_id,)).df()
                     
                     if not existing.empty:
-                        # 2. 실제로 값이 바뀐 컬럼만 추출
-                        changed_cols = []
-                        params = []
+                        changed_cols, params = [], []
                         for col in updated_e.columns:
-                            if col == 'event_id': continue  # PK는 절대 수정 대상에 넣지 않음
-                            
-                            val_new = row[col]
-                            val_old = existing.iloc[0][col]
-                            
-                            # None/NaN 처리 및 비교
+                            if col == 'event_id': continue
+                            val_new, val_old = row[col], existing.iloc[0][col]
                             if str(val_new) != str(val_old):
                                 changed_cols.append(f'"{col}" = ?')
                                 params.append(val_new)
                         
-                        # 3. 변경사항이 있을 때만 UPDATE 실행
                         if changed_cols:
                             sql = f"UPDATE events SET {', '.join(changed_cols)} WHERE event_id = ?"
                             params.append(e_id)
                             conn.execute(sql, tuple(params))
+                    # 기존의 백슬래시가 포함된 복잡한 f-string을 아래와 같이 간결하게 수정합니다.
                     else:
                         # 4. 신규 데이터 INSERT
                         cols = updated_e.columns.tolist()
-                        quoted_cols = [f'"{c}"' for c in cols]
+                        # f-string 내부에서 백슬래시 없이 쌍따옴표를 입히는 방법
+                        quoted_cols = [f'"{c}"' for c in cols] 
                         placeholders = ", ".join(["?"] * len(cols))
+                        
+                        # 최종 SQL문 구성
                         sql = f'INSERT INTO events ({", ".join(quoted_cols)}) VALUES ({placeholders})'
                         conn.execute(sql, tuple(row[cols]))
-            
-            st.success("참조 무결성을 유지하며 변경된 필드만 업데이트했습니다.")
+            st.success("업데이트 완료!")
             st.rerun()
 
 # ---------------------------------------------------------
@@ -248,7 +303,7 @@ elif choice == "📊 보고서 생성":
     st.header("📊 활동 결과 보고서")
     
     # 상단 회칙 링크 (UI용)
-    st.info("🔗 [또닥또닥 회칙 확인하기](https://www.band.us/band/85157163/post/4765)")
+    st.info("🔗 [또닥또닥 회칙 확인하기]  \n(https://www.band.us/band/85157163/post/4765)")
     
     target_month = st.text_input("📅 대상 월 선택", value=datetime.now(KST).strftime('%Y-%m'))
     
@@ -272,7 +327,7 @@ elif choice == "📊 보고서 생성":
             # --- 리포트 텍스트 구성 ---
             report_text = f"⛰️ **{target_month} 활동 요약 보고서**\n\n"
             report_text += "---\n\n"
-            report_text += "📜 **회칙 확인하기**\n"
+            report_text += "📜 **회칙 확인하기**  \n"
             report_text += "https://www.band.us/band/85157163/post/4765 \n\n"
             
             report_text += "📂 **[이달의 산행 내역]**\n\n"
