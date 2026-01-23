@@ -91,16 +91,19 @@ elif choice == "👥 회원 관리":
             WHERE t.user_no = m.user_no;
         """)
         # B. 전체 회원 데이터 로드 (필터 옵션 추출용)
-        df_all = conn.execute("SELECT * FROM members WHERE role <> 'exmember' order by birth_year, name, area").df()
+        df_all = conn.execute("SELECT * FROM members order by birth_year, name, area").df()
 
     # --- [필터링 UI 섹션] ---
-    f_col1, f_col2 = st.columns(2)
+    f_col1, f_col2, f_col3 = st.columns(3)
     with f_col1:
         years_options = sorted(df_all['birth_year'].unique().tolist())
         sel_years = st.multiselect("🎂 생년 필터", options=years_options, placeholder="전체 보기")
     with f_col2:
         areas_options = sorted(df_all['area'].unique().tolist())
         sel_areas = st.multiselect("📍 지역 필터", options=areas_options, placeholder="전체 보기")
+    with f_col3:
+        role_options = sorted(df_all['role'].unique().tolist())
+        sel_role = st.multiselect("📍 역할 필터", options=role_options, placeholder="전체 보기")
 
     # 데이터 필터링 적용
     df_m = df_all.copy()
@@ -108,6 +111,8 @@ elif choice == "👥 회원 관리":
         df_m = df_m[df_m['birth_year'].isin(sel_years)]
     if sel_areas:
         df_m = df_m[df_m['area'].isin(sel_areas)]
+    if sel_role:
+        df_m = df_m[df_m['role'].isin(sel_role)]
 
     st.caption(f"🔍 검색 결과: {len(df_m)}명")
 
