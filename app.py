@@ -141,110 +141,100 @@ class UIRenderer:
     def view_home(self):
         self.set_background()
         self.render_manual("홈")
-        st.title("🏔️ 운영 대시보드")
-        df_summary = self.db.query("SELECT * FROM v_member_attendance_summary")
-        active_members = df_summary[df_summary['회원상태'] != 'exmember']
+        st.title("⛰️ 또닥또닥 산악회")
         
-        # Tabs for better organization
-        tab_overview, tab_demo, tab_activity = st.tabs(["🏠 대시보드", "👥 회원 통계", "🏆 명예의 전당"])
+        # [Dashboard Layout]
+        # Tabbed layout for better organization
+        tab_overview, tab_demo, tab_activity = st.tabs(["📊 대시보드 (Overview)", "👥 회원 구성 (Demographics)", "🏆 명예의 전당 (Hall of Fame)"])
         
         # --- TAB 1: OVERVIEW ---
         with tab_overview:
-            m1, m2, m3 = st.columns(3)
-            m1.metric("전체 회원", f"{len(active_members)}명")
-            m2.metric("이달의 열정 합계", f"{int(df_summary['획득점수'].sum())}점")
-            m3.metric("🚨 관리 대상", f"{len(df_summary[df_summary['회원상태'].str.contains('🚨')])}명")
+            # 1. Headline Metrics (Card Style)
+            total_members = self.db.query("SELECT COUNT(*) FROM members WHERE role<>'exmember'").iloc[0, 0]
+            # Calculate total points
+            df_points = self.db.query("SELECT user_no, point FROM members WHERE role<>'exmember'")
+            total_base = df_points['point'].sum() if not df_points.empty else 0
+            event_score = self.db.query("SELECT SUM(e.score) FROM events e JOIN attendees a ON e.event_id = a.event_id").iloc[0,0]
+            if pd.isna(event_score): event_score = 0
+            total_activity_score = total_base + event_score
+            
+            # Count active members (attended within 3 months) for "Active" metric
+            three_months_ago = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
+            active_count = self.db.query(f"SELECT COUNT(DISTINCT user_no) FROM attendees a JOIN events e ON a.event_id = e.event_id WHERE e.date >= '{three_months_ago}'").iloc[0,0]
 
-            if self.ai.model:
-                with st.expander("✨ AI 산악회 비서 브리핑", expanded=True):
-                    if st.button("🔍 데이터 분석 실행", use_container_width=True):
-                        st.write(self.ai.get_briefing(df_summary))
+            # Custom Card CSS
+            card_style = "background-color: rgba(0,0,0,0.5); padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white; text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center;"
             
-            st.divider()
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.markdown(f"""
+                <div style="{card_style}">
+                    <div style="font-size: 16px; opacity: 0.8; margin-bottom: 5px;">총 회원수</div>
+                    <div style="font-size: 32px; font-weight: bold;">{total_members}명</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with c2:
+                st.markdown(f"""
+                <div style="{card_style}">
+                    <div style="font-size: 16px; opacity: 0.8; margin-bottom: 5px;">최근 활동 회원</div>
+                    <div style="font-size: 32px; font-weight: bold; color: #4ade80;">{active_count}명</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with c3:
+                st.markdown(f"""
+                <div style="{card_style}">
+                    <div style="font-size: 16px; opacity: 0.8; margin-bottom: 5px;">누적 활동 점수</div>
+                    <div style="font-size: 32px; font-weight: bold; color: #ffd700;">{int(total_activity_score):,}점</div>
+                </div>
+                """, unsafe_allow_html=True)
             
-            # Upcoming Events & Weather
-            c_event, c_weather = st.columns([1, 1])
+            st.markdown("---")
             
-            with c_event:
+            # 2. Upcoming Events & Weather (Card Style)
+            c3, c4 = st.columns([1.2, 1])
+            
+            with c3:
+                # Wrap Events in Card
+                st.markdown(f"""<div style="background-color: rgba(0,0,0,0.5); padding: 20px; border-radius: 15px;">""", unsafe_allow_html=True)
                 st.subheader("📅 다가오는 산행")
-                today_str = datetime.now(Config.KST).strftime('%Y-%m-%d')
-                try:
-                    # Upcoming events query
-                    df_up = self.db.query(f"SELECT * FROM events WHERE date >= '{today_str}' ORDER BY date ASC LIMIT 3")
-                    if not df_up.empty:
-                        for _, row in df_up.iterrows():
-                            # D-Day calc: Use pd.to_datetime to handle both str and Timestamp
-                            d_date = pd.to_datetime(row['date']).date()
-                            today_date = datetime.now(Config.KST).date()
-                            days_left = (d_date - today_date).days
-                            d_tag = "D-Day" if days_left == 0 else f"D-{days_left}"
-                            
-                            st.info(f"**[{d_tag}] {d_date}** | {row['title']}")
-                    else:
-                        st.info("예정된 산행이 없습니다.")
-                except Exception as e:
-                    st.error(f"Error: {e}")
-
-            with c_weather:
-                st.markdown("##### 🌤️ 주간 날씨 (서울)")
-                try:
-                    # Open-Meteo API (Free, No Key)
-                    url = "https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo"
-                    res = requests.get(url, timeout=3).json()
-                    
-                    if 'daily' in res:
-                        d = res['daily']
-                        dates = d['time']
-                        codes = d['weather_code']
-                        max_t = d['temperature_2m_max']
-                        min_t = d['temperature_2m_min']
+                today = datetime.now().strftime("%Y-%m-%d")
+                upcoming = self.db.query(f"SELECT * FROM events WHERE date >= '{today}' ORDER BY date ASC LIMIT 3")
+                
+                if not upcoming.empty:
+                    for _, row in upcoming.iterrows():
+                        d_day = (pd.to_datetime(row['date']) - pd.to_datetime(today)).days
+                        badge = f"D-{d_day}" if d_day > 0 else "D-Day"
+                        badge_color = "#ef4444" if d_day <= 3 else "#3b82f6"
                         
-                        # WMO Code Map
-                        def get_icon(c):
-                            if c == 0: return "☀️"
-                            if c in [1,2,3]: return "🌥️"
-                            if c in [45,48]: return "🌫️"
-                            if c in [51,53,55,61,63,65]: return "🌧️"
-                            if c in [71,73,75,77]: return "❄️"
-                            if c >= 95: return "⛈️"
-                            return "🌡️"
+                        st.markdown(f"""
+                        <div style="background-color: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid {badge_color};">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="font-weight: bold; font-size: 16px; color: #fff;">{row['title']}</div>
+                                <div style="background-color: {badge_color}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">{badge}</div>
+                            </div>
+                            <div style="color: #ccc; font-size: 13px; margin-top: 4px;">📅 {row['date']} &nbsp;|&nbsp; 👑 {row['host']}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("예정된 산행이 없습니다.")
+                st.markdown("</div>", unsafe_allow_html=True)
 
-                        # Display 7 days in columns
-                        cols = st.columns(7)
-                        for i in range(7): # Show full week
-                            with cols[i]:
-                                dt = datetime.strptime(dates[i], "%Y-%m-%d")
-                                dow = ["월", "화", "수", "목", "금", "토", "일"][dt.weekday()]
-                                st.markdown(f"""<div style="text-align: center; font-size: 12px; background-color: rgba(0,0,0,0.5); padding: 5px; border-radius: 8px;">
-                                {dt.strftime('%m/%d')}({dow})<br>
-                                <span style="font-size: 20px;">{get_icon(codes[i])}</span><br>
-                                <span style="color: #ff6b6b;">{int(max_t[i])}°</span> / <span style="color: #4ecdc4;">{int(min_t[i])}°</span>
-                                </div>""", unsafe_allow_html=True)
-                    else:
-                        st.error("날씨 정보 없음")
-                except Exception as e:
-                    st.error("날씨 로드 실패")
+            with c4:
+                # Wrap Weather in Card
+                st.markdown(f"""<div style="background-color: rgba(0,0,0,0.5); padding: 20px; border-radius: 15px;">""", unsafe_allow_html=True)
+                st.subheader("🌤️ 서울 날씨")
+                self.render_weather_forecast()
+                st.markdown("</div>", unsafe_allow_html=True)
 
-        # --- Video Guide Section (v2.21) ---
-        st.divider()
-        with st.expander("📺 앱 사용 예시 (Video Guide)", expanded=True):
-            video_path = "demo.mp4"
-            gif_path = "demo.gif"
-            
-            if os.path.exists(video_path):
-                st.video(video_path)
-            elif os.path.exists(gif_path):
-                st.image(gif_path)
-            else:
-                st.info("💡 **사용 가이드 영상이 없습니다.**")
-                st.markdown("""
-                **영상을 추가하려면:**
-                1. 화면 녹화 도구로 앱 사용 영상을 찍으세요.
-                2. 파일을 `demo.mp4` (또는 `demo.gif`) 이름으로 저장하세요.
-                3. 프로젝트 폴더(`docker/`)에 넣고 이미지를 다시 빌드하면 이곳에 자동 재생됩니다.
-                """)
-
-            st.caption("📢 최근 일정 및 공지사항을 여기서 확인할 수 있습니다.")
+            # AI Briefing Section
+            st.markdown("---")
+            st.subheader("🤖 AI 주간 브리핑")
+            if st.button("✨ 이번 주 산행 & 날씨 브리핑 생성"):
+                check_events = self.db.query(f"SELECT * FROM events WHERE date >= '{today}' LIMIT 1")
+                if check_events.empty:
+                    st.warning("예정된 산행 데이터가 없어 브리핑을 생성할 수 없습니다.")
+                else:
+                    self.show_ai_briefing(upcoming)
 
 
         # --- TAB 2: DEMOGRAPHICS ---
