@@ -138,10 +138,81 @@ class UIRenderer:
         except Exception as e:
             print(f"Background image not found: {e}")
 
+    def render_weather_forecast(self):
+        try:
+            # Open-Meteo API (Free, No Key)
+            url = "https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo"
+            res = requests.get(url, timeout=3).json()
+            
+            if 'daily' in res:
+                d = res['daily']
+                dates = d['time']
+                codes = d['weather_code']
+                max_t = d['temperature_2m_max']
+                min_t = d['temperature_2m_min']
+                
+                # WMO Code Map
+                def get_icon(c):
+                    if c == 0: return "☀️"
+                    if c in [1,2,3]: return "🌥️"
+                    if c in [45,48]: return "🌫️"
+                    if c in [51,53,55,61,63,65]: return "🌧️"
+                    if c in [71,73,75,77]: return "❄️"
+                    if c >= 95: return "⛈️"
+                    return "🌡️"
+
+                # Display 7 days in columns
+                cols = st.columns(7)
+                for i in range(7): # Show full week
+                    with cols[i]:
+                        dt = datetime.strptime(dates[i], "%Y-%m-%d")
+                        dow = ["월", "화", "수", "목", "금", "토", "일"][dt.weekday()]
+                        st.markdown(f"""<div style="text-align: center; font-size: 12px; background-color: rgba(255,255,255,0.05); padding: 5px; border-radius: 8px;">
+                        {dt.strftime('%m/%d')}<br>({dow})<br>
+                        <span style="font-size: 20px;">{get_icon(codes[i])}</span><br>
+                        <span style="color: #ff6b6b;">{int(max_t[i])}°</span><br><span style="color: #4ecdc4;">{int(min_t[i])}°</span>
+                        </div>""", unsafe_allow_html=True)
+            else:
+                st.error("날씨 정보 없음")
+        except Exception as e:
+            st.error("날씨 로드 실패")
+
+    def show_ai_briefing(self, upcoming_events):
+        with st.chat_message("assistant"):
+            with st.spinner("🤖 산악회 비서가 데이터를 분석 중입니다..."):
+                try:
+                    # Prepare data for AI
+                    summary_text = f"현재 날짜: {datetime.now().strftime('%Y-%m-%d')}\n"
+                    if not upcoming_events.empty:
+                        for _, row in upcoming_events.iterrows():
+                            summary_text += f"- 일정: {row['title']} ({row['date']}), 담당: {row['host']}\n"
+                    
+                    # Call AI (assuming self.ai.get_briefing exists or calling model directly)
+                    # Based on previous code: self.ai.get_briefing(df_summary)
+                    # We will reuse generalized prompt logic
+                    if self.ai and self.ai.model:
+                        response = self.ai.model.generate_content(f"""
+                        당신은 '또닥또닥 산악회'의 AI 비서입니다. 
+                        다음 일정 정보를 바탕으로 회원들에게 전할 활기차고 유용한 주간 브리핑을 작성해주세요.
+                        날씨 언급은 일반적인 계절감을 섞어서 해주세요.
+                        
+                        [정보]
+                        {summary_text}
+                        """)
+                        st.markdown(response.text)
+                    else:
+                        st.info("AI 모델이 연결되지 않았습니다.")
+                except Exception as e:
+                    st.error(f"AI 분석 중 오류 발생: {e}")
+
     def view_home(self):
         self.set_background()
         self.render_manual("홈")
         st.title("⛰️ 또닥또닥 산악회")
+        
+        # Data Loading
+        df_summary = self.db.query("SELECT * FROM v_member_attendance_summary")
+        active_members = df_summary[df_summary['회원상태'] != 'exmember']
         
         # [Dashboard Layout]
         # Tabbed layout for better organization
