@@ -73,7 +73,16 @@ class HomePage:
             st.markdown(f"""<div style="background-color: rgba(0,0,0,0.5); padding: 20px; border-radius: 15px;">""", unsafe_allow_html=True)
             st.subheader("📅 다가오는 산행")
             today = datetime.now().strftime("%Y-%m-%d")
-            upcoming = self.db.query(f"SELECT * FROM events WHERE date >= '{today}' ORDER BY date ASC LIMIT 3")
+            # 주최자 정보를 가져오기 위해 members 테이블과 JOIN
+            sql = f"""
+                SELECT e.*, m.name as host_name, m.birth_year, m.area, m.profile_image_url 
+                FROM events e 
+                LEFT JOIN members m ON e.host = m.user_no 
+                WHERE e.date >= '{today}' 
+                ORDER BY e.date ASC 
+                LIMIT 3
+            """
+            upcoming = self.db.query(sql)
             
             if not upcoming.empty:
                 for _, row in upcoming.iterrows():
@@ -81,13 +90,29 @@ class HomePage:
                     badge = f"D-{d_day}" if d_day > 0 else "D-Day"
                     badge_color = "#ef4444" if d_day <= 3 else "#3b82f6"
                     
+                    # 주최자 상세 정보 포맷팅 (생년/이름/지역)
+                    birth = str(int(row['birth_year']))[-2:] if pd.notna(row['birth_year']) else "??"
+                    host_info = f"{birth}/{row['host_name'] or row['host']}/{row['area'] or '미상'}"
+                    
+                    # 프로필 이미지 처리
+                    img_url = row['profile_image_url'] if pd.notna(row['profile_image_url']) and row['profile_image_url'] else "https://ui-avatars.com/api/?name=" + (row['host_name'] or "Host") + "&background=random"
+                    
+                    # 날짜 형식 처리 (시간 정보 제거)
+                    display_date = pd.to_datetime(row['date']).strftime('%Y-%m-%d')
+                    
                     st.markdown(f"""
-                    <div style="background-color: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid {badge_color}; cursor: pointer; transition: background-color 0.2s;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="font-weight: bold; font-size: 16px; color: #fff;">{row['title']}</div>
-                            <div style="background-color: {badge_color}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">{badge}</div>
+                    <div style="background-color: rgba(255,255,255,0.05); padding: 12px; border-radius: 12px; margin-bottom: 12px; border-left: 5px solid {badge_color}; transition: transform 0.2s ease;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div style="font-weight: bold; font-size: 16px; color: #fff; margin-bottom: 8px;">{row['title']}</div>
+                            <div style="background-color: {badge_color}; color: white; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">{badge}</div>
                         </div>
-                        <div style="color: #ccc; font-size: 13px; margin-top: 4px;">📅 {row['date']} &nbsp;|&nbsp; 👑 {row['host']}</div>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                            <img src="{img_url}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255,255,255,0.2);">
+                            <div style="display: flex; flex-direction: column;">
+                                <div style="color: #eee; font-size: 13px; font-weight: 500;">📅 {display_date}</div>
+                                <div style="color: #aaa; font-size: 12px;">👑 {host_info}</div>
+                            </div>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
@@ -109,6 +134,10 @@ class HomePage:
                 st.warning("예정된 산행 데이터가 없어 브리핑을 생성할 수 없습니다.")
             else:
                 self._show_ai_briefing(upcoming)
+        
+        # 4. 최근 공지 분석 (Relocated from Demographics)
+        st.markdown("---")
+        self._render_event_analysis()
 
     def _render_demographics(self, df_summary):
         c3, c4 = st.columns(2)
@@ -241,7 +270,6 @@ class HomePage:
         self._render_map(df_summary)
 
     def _render_map(self, df_summary):
-        c1, c2 = st.columns(2)
         # ... (Map coordinates logic)
         coords = {
                 "서울": [37.5665, 126.9780], "경기": [37.4138, 127.5183], "인천": [37.4563, 126.7052],
@@ -269,29 +297,138 @@ class HomePage:
         df_map['lat'] = df_map['area'].apply(lambda x: get_coords(x)[0])
         df_map['lon'] = df_map['area'].apply(lambda x: get_coords(x)[1])
         
-        with c1: 
-            fig_map = px.scatter_mapbox(
-                df_map, lat="lat", lon="lon", size="count", color="count",
-                hover_name="area", size_max=25, zoom=8, 
-                center={"lat": 37.5, "lon": 127.0},
-                title='📍 지역 분포 (서울/경기)',
-                mapbox_style="open-street-map", height=400
-            )
-            fig_map.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
-            st.plotly_chart(fig_map, use_container_width=True)
-            st.markdown("""<div style="text-align: right; font-size: 11px; color: #aaa; margin-top: -10px;">* 원의 크기와 색상은 해당 지역의 회원 수에 비례합니다.</div>""", unsafe_allow_html=True)
+        # 실제 지도 대신 그래픽화된 좌표 시스템 활용
+        # px.scatter를 사용하여 단순화된 분포도 생성 (v3.9: 고대비 네온 테마)
+        fig_map = px.scatter(
+            df_map, x="lon", y="lat", size="count", color="count",
+            hover_name="area", size_max=50,
+            text="area",
+            color_continuous_scale=[[0, "#064e3b"], [0.5, "#10b981"], [1, "#06effe"]], # 네온 민트 -> 사이버 시안
+            title='📍 지역별 분포 (Schematic Neon View)'
+        )
+        
+        fig_map.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(255,255,255,0.03)',
+            height=500,
+            showlegend=False,
+            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, title=""),
+            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, title=""),
+            margin={"r":20,"t":70,"l":20,"b":20},
+            title_font=dict(size=20, color="#fff", family="Inter, sans-serif"),
+            font=dict(color="#fff", weight='bold') # 텍스트 가독성 강화
+        )
+        fig_map.update_traces(
+            textposition='top center', 
+            marker=dict(
+                line=dict(width=2, color='rgba(255,255,255,0.5)'),
+                opacity=0.9
+            ),
+            textfont=dict(size=14, color="#fff")
+        )
+        
+        st.plotly_chart(fig_map, use_container_width=True)
+        st.markdown("""<div style="text-align: right; font-size: 11px; color: #aaa; margin-top: -10px;">* 위치는 실제 지도 좌표를 바탕으로 단순화된 모식도입니다.</div>""", unsafe_allow_html=True)
+
+    def _render_event_analysis(self):
+        c1, c2 = st.columns([1, 1.2])
+        with c1:
+            st.subheader("📊 최근 공지 분석")
+            # 1. 월별 추이 (최근 5개월)
+            sql_trend = """
+                SELECT strftime('%Y-%m', date) as month, count(*) as count 
+                FROM events 
+                WHERE date >= CAST(date_trunc('month', today() - interval 4 month) AS DATE)
+                  AND date <= today()
+                GROUP BY month 
+                ORDER BY month
+            """
             
+            # 2. 연간 통계 (최근 12개월)
+            sql_stats = """
+                WITH monthly_data AS (
+                    SELECT strftime('%Y-%m', date) as month, count(*) as cnt 
+                    FROM events 
+                    WHERE date >= CAST(date_trunc('month', today() - interval 11 month) AS DATE)
+                      AND date <= today()
+                    GROUP BY month
+                )
+                SELECT 
+                    (SELECT AVG(cnt) FROM monthly_data) as avg_cnt,
+                    (SELECT month FROM monthly_data ORDER BY cnt DESC, month DESC LIMIT 1) as peak_month,
+                    (SELECT cnt FROM monthly_data ORDER BY cnt DESC, month DESC LIMIT 1) as peak_cnt,
+                    (SELECT month FROM monthly_data ORDER BY cnt ASC, month ASC LIMIT 1) as low_month,
+                    (SELECT cnt FROM monthly_data ORDER BY cnt ASC, month ASC LIMIT 1) as low_cnt,
+                    (SELECT count(*) FROM events WHERE strftime('%Y-%m', date) = strftime('%Y-%m', today()) AND date <= today()) as current_cnt
+            """
+            
+            try:
+                df_trend = self.db.query(sql_trend)
+                df_stats = self.db.query(sql_stats)
+                
+                if not df_trend.empty and not df_stats.empty:
+                    max_count = df_trend['count'].max()
+                    avg_v = df_stats['avg_cnt'].iloc[0] or 0
+                    peak_v = df_stats['peak_cnt'].iloc[0] or 0
+                    peak_m = df_stats['peak_month'].iloc[0] or "-"
+                    low_v = df_stats['low_cnt'].iloc[0] or 0
+                    low_m = df_stats['low_month'].iloc[0] or "-"
+                    curr_v = df_stats['current_cnt'].iloc[0] or 0
+                    
+                    # 렌더링 깨짐 방지를 위해 들여쓰기 제거 (v3.9: 고대비 스타일)
+                    trend_html = "<div style='background-color: rgba(0,0,0,0.6); border-radius: 15px; padding: 25px; min-height: 240px; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: center;'>"
+                    trend_html += "<div style='font-size: 16px; color: #fff; margin-bottom: 25px; text-align: center; font-weight: 800; letter-spacing: 1px;'>📅 월별 활동 동향 (최근 5개월)</div>"
+                    trend_html += "<div style='display: flex; justify-content: space-around; align-items: center; gap: 5px;'>"
+                    
+                    for _, row in df_trend.iterrows():
+                        base_size = 52
+                        scale = (row['count'] / max_count) * 52 if max_count > 0 else 0
+                        size = base_size + scale
+                        opacity = 0.6 + (row['count'] / max_count) * 0.4 if max_count > 0 else 0.6
+                        
+                        trend_html += f"""
+<div style="display: flex; flex-direction: column; align-items: center; width: 80px;">
+<span style="font-size: 14px; color: #fff; font-weight: 900; margin-bottom: 15px; background: rgba(16, 185, 129, 0.3); border: 1px solid rgba(16, 185, 129, 0.5); padding: 3px 10px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">{row['month']}</span>
+<div style="width: {size}px; height: {size}px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #34d399, #10b981); border: 3px solid #fff; box-shadow: 0 0 {size/2}px rgba(16, 185, 129, 0.6); display: flex; align-items: center; justify-content: center; transition: transform 0.3s; transform: scale(1);">
+<span style="font-size: {16 + size/8}px; font-weight: 900; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">{row['count']}</span>
+</div>
+</div>"""
+                    trend_html += "</div></div>"
+                    st.markdown(trend_html, unsafe_allow_html=True)
+            except Exception as e:
+                st.error(f"Trend Load Error: {e}")
+
         with c2:
-            st.subheader("🏙️ Top 5 활동 지역")
-            top_regions = df_map.head(5)
-            max_reg = top_regions['count'].max()
-            
-            bar_html = "<div style='background-color: rgba(0,0,0,0.5); border-radius: 10px; padding: 15px;'>"
-            for _, row in top_regions.iterrows():
-                pct = (row['count'] / max_reg) * 100
-                bar_html += f"""<div style="margin-bottom: 12px;"><div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span style="font-weight: bold; color: #eee;">{row['area']}</span><span style="font-weight: bold; color: #4da6ff;">{row['count']}명</span></div><div style="width: 100%; background-color: #444; border-radius: 6px; height: 12px;"><div style="width: {pct}%; background: linear-gradient(90deg, #2575fc, #6a11cb); height: 100%; border-radius: 6px;"></div></div></div>"""
-            bar_html += "</div>"
-            st.markdown(bar_html, unsafe_allow_html=True)
+            st.markdown("<div style='height: 45px;'></div>", unsafe_allow_html=True)
+            try:
+                if not df_stats.empty:
+                    # 통계 카드 2x2 그리드
+                    stats_html = f"""
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+<div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+<div style="font-size: 22px; margin-bottom: 8px;">📈</div>
+<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">평균 (연간)</div>
+<div style="font-size: 22px; font-weight: bold; color: #10b981;">{avg_v:.1f}회</div>
+</div>
+<div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+<div style="font-size: 22px; margin-bottom: 8px;">🏆</div>
+<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">최다 ({peak_m})</div>
+<div style="font-size: 22px; font-weight: bold; color: #3b82f6;">{int(peak_v)}회</div>
+</div>
+<div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+<div style="font-size: 22px; margin-bottom: 8px;">📉</div>
+<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">최소 ({low_m})</div>
+<div style="font-size: 22px; font-weight: bold; color: #f59e0b;">{int(low_v)}회</div>
+</div>
+<div style="background: rgba(236, 72, 153, 0.1); border: 1px solid rgba(236, 72, 153, 0.2); padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+<div style="font-size: 22px; margin-bottom: 8px;">🔔</div>
+<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">이번 달</div>
+<div style="font-size: 22px; font-weight: bold; color: #ec4899;">{int(curr_v)}회</div>
+</div>
+</div>"""
+                    st.markdown(stats_html, unsafe_allow_html=True)
+            except Exception as e:
+                st.error(f"Stats Load Error: {e}")
 
 
     def _render_hall_of_fame(self, df_summary, active_members):
@@ -301,25 +438,42 @@ class HomePage:
         
         c_host, c_attend, c_event = st.columns(3)
         
-        def get_rank_html(rank, text, subtext):
+        def get_rank_html(rank, text, subtext, img_url=None):
             colors = ["#FFD700", "#C0C0C0", "#CD7F32"] 
             color = colors[rank] if rank < 3 else "#FFFFFF"
             rank_num = rank + 1
+            
+            # 이미지 URL이 없으면 기본 아바타 사용
+            if not img_url:
+                img_url = f"https://ui-avatars.com/api/?name={text}&background=random"
+                
             return f"""
-            <div style="background-color: rgba(0,0,0,0.4); padding: 10px; border-radius: 8px; margin-bottom: 6px; display: flex; align-items: center;">
-                <div style="width: 30px; height: 30px; border-radius: 50%; background-color: {color}; color: #000; font-weight: bold; display: flex; align-items: center; justify-content: center; margin-right: 10px; flex-shrink: 0;">{rank_num}</div>
-                <div style="flex-grow: 1;"><b>{text}</b></div>
-                <div style="font-size: 14px; color: #eee;">{subtext}</div>
+            <div style="background-color: rgba(0,0,0,0.4); padding: 10px; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; border: 1px solid rgba(255,255,255,0.05); transition: transform 0.2s;">
+                <div style="width: 28px; height: 28px; border-radius: 50%; background-color: {color}; color: #000; font-weight: bold; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">{rank_num}</div>
+                <img src="{img_url}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; margin-right: 12px; border: 1.5px solid {color if rank < 3 else 'rgba(255,255,255,0.2)'};">
+                <div style="flex-grow: 1;">
+                    <div style="font-weight: bold; color: #fff; font-size: 15px;">{text}</div>
+                    <div style="font-size: 12px; color: #aaa;">{subtext}</div>
+                </div>
             </div>
             """
 
         with c_host:
             st.markdown("##### 📣 이달의 공지왕")
             try:
-                df_host = self.db.query(f"SELECT m.name, COUNT(*) as cnt FROM events e JOIN members m ON e.host = m.user_no WHERE strftime('%Y-%m', e.date) = '{cur_month_str}' GROUP BY m.name ORDER BY cnt DESC LIMIT 3")
+                # members 테이블과 JOIN하여 profile_image_url 가져옴
+                df_host = self.db.query(f"""
+                    SELECT m.name, m.profile_image_url, COUNT(*) as cnt 
+                    FROM events e 
+                    JOIN members m ON e.host = m.user_no 
+                    WHERE strftime('%Y-%m', e.date) = '{cur_month_str}' 
+                    GROUP BY m.name, m.profile_image_url 
+                    ORDER BY cnt DESC 
+                    LIMIT 3
+                """)
                 if not df_host.empty:
                     for idx, row in df_host.iterrows():
-                        st.markdown(get_rank_html(idx, row['name'], f"{row['cnt']}회"), unsafe_allow_html=True)
+                        st.markdown(get_rank_html(idx, row['name'], f"{row['cnt']}회", row['profile_image_url']), unsafe_allow_html=True)
                 else:
                     st.caption("데이터 없음")
             except Exception as e:
@@ -328,11 +482,22 @@ class HomePage:
         with c_attend:
             st.markdown("##### 🏃 이달의 참석왕")
             try:
-                top_scorers = active_members.sort_values(by='획득점수', ascending=False).head(3)
-                if not top_scorers.empty:
-                    for i in range(len(top_scorers)):
-                        row = top_scorers.iloc[i]
-                        st.markdown(get_rank_html(i, row['MemberID'], f"{int(row['획득점수'])}점"), unsafe_allow_html=True)
+                # active_members에는 profile_image_url이 없을 수 있으므로 members와 다시 JOIN 하거나
+                # 애초에 획득점수를 다시 계산하여 가져옴
+                df_attend = self.db.query(f"""
+                    SELECT m.name, m.profile_image_url, SUM(e.score) as score
+                    FROM attendees a
+                    JOIN events e ON a.event_id = e.event_id
+                    JOIN members m ON a.user_no = m.user_no
+                    WHERE strftime('%Y-%m', e.date) = '{cur_month_str}'
+                    GROUP BY m.name, m.profile_image_url
+                    ORDER BY score DESC
+                    LIMIT 3
+                """)
+                
+                if not df_attend.empty:
+                    for idx, row in df_attend.iterrows():
+                        st.markdown(get_rank_html(idx, row['name'], f"{int(row['score'])}점", row['profile_image_url']), unsafe_allow_html=True)
                 else:
                     st.caption("데이터 없음")
             except Exception as e:
@@ -344,7 +509,16 @@ class HomePage:
                 df_pop = self.db.query(f"SELECT e.title, COUNT(a.user_no) as cnt FROM events e JOIN attendees a ON e.event_id = a.event_id WHERE strftime('%Y-%m', e.date) = '{cur_month_str}' GROUP BY e.title ORDER BY cnt DESC LIMIT 3")
                 if not df_pop.empty:
                     for idx, row in df_pop.iterrows():
-                        st.markdown(get_rank_html(idx, row['title'], f"{row['cnt']}명"), unsafe_allow_html=True)
+                        # 이벤트는 이미지가 없으므로 텍스트만 표시하는 기존 스타일 유지하거나 아이콘 사용
+                        st.markdown(f"""
+                        <div style="background-color: rgba(0,0,0,0.4); padding: 10px; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; border: 1px solid rgba(255,255,255,0.05);">
+                            <div style="width: 28px; height: 28px; border-radius: 50%; background-color: #FFFFFF; color: #000; font-weight: bold; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0; font-size: 14px;">{idx+1}</div>
+                            <div style="flex-grow: 1;">
+                                <div style="font-weight: bold; color: #fff; font-size: 14px;">{row['title']}</div>
+                                <div style="font-size: 12px; color: #aaa;">{row['cnt']}명 참석</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
                 else:
                     st.caption("데이터 없음")
             except Exception as e:

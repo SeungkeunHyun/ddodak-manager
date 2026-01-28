@@ -51,6 +51,18 @@ class ReportPage:
             
             report += f"🏆 **[이달의 시상 현황]**{sp}\n" + (f"{sp}\n".join(winners) if winners else "해당사항 없음") + f"{sp}\n\n"
             
+            # 2.5 신입 첫 산행 축하
+            df_first = self.db.query(f"""
+                SELECT m.name, MIN(e.date) as first_date 
+                FROM attendees a 
+                JOIN events e ON a.event_id = e.event_id 
+                JOIN members m ON a.user_no = m.user_no 
+                GROUP BY m.user_no, m.name 
+                HAVING strftime('%Y-%m', first_date) = '{target_month}'
+            """)
+            celebrations = [f"🎊 {row['name']}님 (첫 참석 환영합니다!)" for _, row in df_first.iterrows()]
+            report += f"🎉 **[첫 참석을 반겨요]**{sp}\n" + (f"{sp}\n".join(celebrations) if celebrations else "없음") + f"{sp}\n\n"
+            
             # 3. 경고 (미활동) 안내
             sleep_warning = df_rep[df_rep['회원상태'].str.contains('😴🚨', na=False)]['MemberID'].tolist()
             new_warning = df_rep[df_rep['회원상태'].str.contains('🌱🚨', na=False)]['MemberID'].tolist()
