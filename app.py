@@ -84,6 +84,41 @@ class UIRenderer:
             st.divider()
             return st.radio("메뉴 이동", ["🏠 홈", "👥 회원 관리", "📅 산행 일정", "🏃 참가 체크", "📊 보고서 생성"])
 
+    # --- Helper: Page Manuals ---
+    def render_manual(self, page):
+        with st.expander(f"📖 {page} 페이지 이용 가이드", expanded=False):
+            if page == "홈":
+                st.markdown("""
+                - **대시보드**: 전체 회원 수, 이달의 활동 점수 등 핵심 지표를 한눈에 확인하세요.
+                - **다가오는 산행**: 가장 가까운 일정(3개)과 디데이, 서울 주간 날씨를 제공합니다.
+                - **명예의 전당**: 이달의 공지왕, 참석왕(획득점수 순), 인기 산행 랭킹을 볼 수 있습니다.
+                - **회원 통계**: 기수별 인원 및 성별 분포를 시각적으로 분석합니다.
+                """)
+            elif page == "회원 관리":
+                st.markdown("""
+                - **회원 검색**: 이름, 전화번호, 닉네임 등으로 회원을 빠르게 찾을 수 있습니다.
+                - **회원 추가**: **테이블 우측 상단의 ➕ 아이콘**을 누르거나, **맨 아래의 빈 행**을 클릭하여 직접 입력하세요.
+                - **수정/삭제**: 목록에서 내용을 직접 수정하거나, 행을 선택하여 삭제할 수 있습니다.
+                """)
+            elif page == "산행 일정":
+                st.markdown("""
+                - **일정 확인**: 달력(Calendar)보기와 리스트 보기를 지원합니다.
+                - **일정 등록**: **테이블 우측 상단의 ➕ 아이콘**을 누르거나, **맨 아래의 빈 행**을 클릭하여 추가하세요.
+                - **설정**: 날짜, 산 이름, 담당자 등을 입력하면 D-Day가 자동 계산됩니다.
+                """)
+            elif page == "참가 체크":
+                st.markdown("""
+                - **출석부**: 진행된 산행을 선택하고 참가자를 체크합니다.
+                - **점수 자동 부여**: 참석 체크 시 활동 점수가 자동으로 누적됩니다.
+                - **게스트 관리**: 비회원(게스트) 참가자도 별도로 기록할 수 있습니다.
+                """)
+            elif page == "보고서 생성":
+                st.markdown("""
+                - **엑셀 다운로드**: 전체 회원 명부나 산행 기록을 엑셀 파일로 저장합니다.
+                - **월간/연간 보고**: 특정 기간의 활동 내역을 요약하여 보고서 형태로 출력합니다.
+                """)
+            st.caption("💡 팁: 화면이 좁다면 사이드바를 닫고 넓게 보실 수 있습니다.")
+
     def set_background(self):
         import base64
         try:
@@ -105,6 +140,7 @@ class UIRenderer:
 
     def view_home(self):
         self.set_background()
+        self.render_manual("홈")
         st.title("🏔️ 운영 대시보드")
         df_summary = self.db.query("SELECT * FROM v_member_attendance_summary")
         active_members = df_summary[df_summary['회원상태'] != 'exmember']
@@ -189,6 +225,25 @@ class UIRenderer:
                 except Exception as e:
                     st.error("날씨 로드 실패")
 
+        # --- Video Guide Section (v2.21) ---
+        st.divider()
+        with st.expander("📺 앱 사용 예시 (Video Guide)", expanded=True):
+            video_path = "demo.mp4"
+            gif_path = "demo.gif"
+            
+            if os.path.exists(video_path):
+                st.video(video_path)
+            elif os.path.exists(gif_path):
+                st.image(gif_path)
+            else:
+                st.info("💡 **사용 가이드 영상이 없습니다.**")
+                st.markdown("""
+                **영상을 추가하려면:**
+                1. 화면 녹화 도구로 앱 사용 영상을 찍으세요.
+                2. 파일을 `demo.mp4` (또는 `demo.gif`) 이름으로 저장하세요.
+                3. 프로젝트 폴더(`docker/`)에 넣고 이미지를 다시 빌드하면 이곳에 자동 재생됩니다.
+                """)
+
             st.caption("📢 최근 일정 및 공지사항을 여기서 확인할 수 있습니다.")
 
 
@@ -223,7 +278,7 @@ class UIRenderer:
                     max_count = age_gender['total'].max()
                     
                     # HTML Generation
-                    html_balls = '<div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; padding: 10px;">'
+                    html_balls = '<div style="background-color: rgba(0,0,0,0.5); padding: 15px; border-radius: 10px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center;">'
                     for year, row in age_gender.iterrows():
                         year = int(year)
                         count = int(row['total'])
@@ -239,7 +294,7 @@ class UIRenderer:
                         size = 50 + (count / max_count) * 50 if max_count > 0 else 50
                         font_size = 14 + (count / max_count) * 6
                         
-                        html_balls += f"""<div style="width: {size}px; height: {size}px; border-radius: 50%; {bg_style} color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s; border: 2px solid rgba(255,255,255,0.2);" title="{year}년생: {count}명 (남:{m_count}/여:{f_count})"><span style="font-weight: bold; font-size: {font_size}px; line-height: 1; text-shadow: 1px 1px 2px black;">{year}</span><span style="font-size: {font_size*0.7}px; opacity: 0.9; text-shadow: 1px 1px 2px black;">{count}명</span></div>"""
+                        html_balls += f"""<div style="width: {size}px; height: {size}px; border-radius: 50%; {bg_style} color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s; border: 2px solid rgba(255,255,255,0.2);" title="{year}년생: {count}명 (남:{m_count}/여:{f_count})"><span style="font-weight: bold; font-size: {font_size}px; line-height: 1; text-shadow: 1px 1px 2px black;">{year}년</span><span style="font-size: {font_size*0.7}px; opacity: 0.9; text-shadow: 1px 1px 2px black;">{count}명</span></div>"""
                     html_balls += '</div>'
                     st.markdown(html_balls, unsafe_allow_html=True)
 
@@ -256,9 +311,9 @@ class UIRenderer:
                     u_pct = (u_count / total * 100) if total > 0 else 0
                     
                     if u_count > 0:
-                        html_gender = f"""<div style="display: flex; justify-content: space-around; align-items: center; height: 100%; padding: 20px 0;"><div style="text-align: center;"><div style="font-size: 60px; color: #3b82f6;">♂️</div><div style="font-size: 18px; font-weight: bold; color: #333;">남성</div><div style="font-size: 14px; color: #555;">{m_count}명 ({m_pct:.1f}%)</div></div><div style="width: 1px; height: 80px; background-color: #eee;"></div><div style="text-align: center;"><div style="font-size: 60px; color: #ec4899;">♀️</div><div style="font-size: 18px; font-weight: bold; color: #333;">여성</div><div style="font-size: 14px; color: #555;">{f_count}명 ({f_pct:.1f}%)</div></div><div style="width: 1px; height: 80px; background-color: #eee;"></div><div style="text-align: center;"><div style="font-size: 60px; color: #9ca3af;">❓</div><div style="font-size: 18px; font-weight: bold; color: #333;">미상</div><div style="font-size: 14px; color: #555;">{u_count}명 ({u_pct:.1f}%)</div></div></div>"""
+                        html_gender = f"""<div style="background-color: rgba(0,0,0,0.5); border-radius: 10px; display: flex; justify-content: space-around; align-items: center; height: 100%; padding: 20px 0;"><div style="text-align: center;"><div style="font-size: 60px; color: #3b82f6;">♂️</div><div style="font-size: 18px; font-weight: bold; color: #eee;">남성</div><div style="font-size: 14px; color: #ccc;">{m_count}명 ({m_pct:.1f}%)</div></div><div style="width: 1px; height: 80px; background-color: #555;"></div><div style="text-align: center;"><div style="font-size: 60px; color: #ec4899;">♀️</div><div style="font-size: 18px; font-weight: bold; color: #eee;">여성</div><div style="font-size: 14px; color: #ccc;">{f_count}명 ({f_pct:.1f}%)</div></div><div style="width: 1px; height: 80px; background-color: #555;"></div><div style="text-align: center;"><div style="font-size: 60px; color: #9ca3af;">❓</div><div style="font-size: 18px; font-weight: bold; color: #eee;">미상</div><div style="font-size: 14px; color: #ccc;">{u_count}명 ({u_pct:.1f}%)</div></div></div>"""
                     else:
-                        html_gender = f"""<div style="display: flex; justify-content: space-around; align-items: center; height: 100%; padding: 20px 0;"><div style="text-align: center;"><div style="font-size: 80px; color: #3b82f6;">♂️</div><div style="font-size: 24px; font-weight: bold; color: #333;">남성</div><div style="font-size: 18px; color: #555;">{m_count}명 ({m_pct:.1f}%)</div></div><div style="width: 2px; height: 100px; background-color: #eee;"></div><div style="text-align: center;"><div style="font-size: 80px; color: #ec4899;">♀️</div><div style="font-size: 24px; font-weight: bold; color: #333;">여성</div><div style="font-size: 18px; color: #555;">{f_count}명 ({f_pct:.1f}%)</div></div></div>"""
+                        html_gender = f"""<div style="background-color: rgba(0,0,0,0.5); border-radius: 10px; display: flex; justify-content: space-around; align-items: center; height: 100%; padding: 20px 0;"><div style="text-align: center;"><div style="font-size: 80px; color: #3b82f6;">♂️</div><div style="font-size: 24px; font-weight: bold; color: #eee;">남성</div><div style="font-size: 18px; color: #ccc;">{m_count}명 ({m_pct:.1f}%)</div></div><div style="width: 2px; height: 100px; background-color: #555;"></div><div style="text-align: center;"><div style="font-size: 80px; color: #ec4899;">♀️</div><div style="font-size: 24px; font-weight: bold; color: #eee;">여성</div><div style="font-size: 18px; color: #ccc;">{f_count}명 ({f_pct:.1f}%)</div></div></div>"""
                     
                     st.markdown(html_gender, unsafe_allow_html=True)
             
@@ -309,10 +364,10 @@ class UIRenderer:
                 top_regions = df_map.head(5)
                 max_reg = top_regions['count'].max()
                 
-                bar_html = "<div style='padding: 10px;'>"
+                bar_html = "<div style='background-color: rgba(0,0,0,0.5); border-radius: 10px; padding: 15px;'>"
                 for _, row in top_regions.iterrows():
                     pct = (row['count'] / max_reg) * 100
-                    bar_html += f"""<div style="margin-bottom: 12px;"><div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span style="font-weight: bold; color: #333;">{row['area']}</span><span style="font-weight: bold; color: #2575fc;">{row['count']}명</span></div><div style="width: 100%; background-color: #eee; border-radius: 6px; height: 12px;"><div style="width: {pct}%; background: linear-gradient(90deg, #2575fc, #6a11cb); height: 100%; border-radius: 6px;"></div></div></div>"""
+                    bar_html += f"""<div style="margin-bottom: 12px;"><div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span style="font-weight: bold; color: #eee;">{row['area']}</span><span style="font-weight: bold; color: #4da6ff;">{row['count']}명</span></div><div style="width: 100%; background-color: #444; border-radius: 6px; height: 12px;"><div style="width: {pct}%; background: linear-gradient(90deg, #2575fc, #6a11cb); height: 100%; border-radius: 6px;"></div></div></div>"""
                 bar_html += "</div>"
                 st.markdown(bar_html, unsafe_allow_html=True)
 
@@ -385,6 +440,7 @@ class UIRenderer:
 
 
     def view_members(self):
+        self.render_manual("회원 관리")
         st.header("👥 회원 명부 관리")
         # 1. 원본 데이터 로드 (삭제 비교용)
         df_all = self.db.query("SELECT * FROM members ORDER BY birth_year, name")
@@ -471,6 +527,7 @@ class UIRenderer:
                 st.rerun()
 
     def view_events(self):
+        self.render_manual("산행 일정")
         st.header("📅 산행 일정 관리")
         # 1. 원본 데이터 로드
         df_e = self.db.query("SELECT * FROM events ORDER BY date DESC")
@@ -545,6 +602,7 @@ class UIRenderer:
                 st.rerun()
 
     def view_attendance(self):
+        self.render_manual("참가 체크")
         st.header("🏃 참석자 명단 체크")
         ev_list = self.db.query("SELECT event_id, date, title, host FROM events ORDER BY date DESC")
         mb_list = self.db.query("SELECT user_no, birth_year, name, area FROM members WHERE role<>'exmember' ORDER BY birth_year, name")
@@ -596,6 +654,7 @@ class UIRenderer:
                 st.rerun()
 
     def view_report(self):
+        self.render_manual("보고서 생성")
         st.header("📊 활동 결과 보고서")
         col1, col2 = st.columns([2, 1])
         with col1: rules = st.text_input("🔗 회칙 링크", value=Config.RULES_URL)
