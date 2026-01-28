@@ -8,6 +8,7 @@ import plotly.express as px
 import importlib.metadata
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
+import requests
 
 # =========================================================
 # 1. App Configuration (설정 관리)
@@ -83,72 +84,305 @@ class UIRenderer:
             st.divider()
             return st.radio("메뉴 이동", ["🏠 홈", "👥 회원 관리", "📅 산행 일정", "🏃 참가 체크", "📊 보고서 생성"])
 
+    def set_background(self):
+        import base64
+        try:
+            with open("background.png", "rb") as f:
+                data = f.read()
+            bin_str = base64.b64encode(data).decode()
+            page_bg_img = f"""
+            <style>
+            .stApp {{
+                background-image: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), url("data:image/png;base64,{bin_str}");
+                background-size: cover;
+                background-attachment: fixed;
+            }}
+            </style>
+            """
+            st.markdown(page_bg_img, unsafe_allow_html=True)
+        except Exception as e:
+            print(f"Background image not found: {e}")
+
     def view_home(self):
+        self.set_background()
         st.title("🏔️ 운영 대시보드")
         df_summary = self.db.query("SELECT * FROM v_member_attendance_summary")
         active_members = df_summary[df_summary['회원상태'] != 'exmember']
         
-        m1, m2, m3 = st.columns(3)
-        m1.metric("전체 회원", f"{len(active_members)}명")
-        m2.metric("이달의 열정 합계", f"{int(df_summary['획득점수'].sum())}점")
-        m3.metric("🚨 관리 대상", f"{len(df_summary[df_summary['회원상태'].str.contains('🚨')])}명")
+        # Tabs for better organization
+        tab_overview, tab_demo, tab_activity = st.tabs(["🏠 대시보드", "👥 회원 통계", "🏆 명예의 전당"])
+        
+        # --- TAB 1: OVERVIEW ---
+        with tab_overview:
+            m1, m2, m3 = st.columns(3)
+            m1.metric("전체 회원", f"{len(active_members)}명")
+            m2.metric("이달의 열정 합계", f"{int(df_summary['획득점수'].sum())}점")
+            m3.metric("🚨 관리 대상", f"{len(df_summary[df_summary['회원상태'].str.contains('🚨')])}명")
 
-        if self.ai.model:
-            with st.expander("✨ AI 산악회 비서 브리핑", expanded=True):
-                if st.button("🔍 데이터 분석 실행", use_container_width=True):
-                    st.write(self.ai.get_briefing(df_summary))
-
-        st.divider()
-        st.divider()
-        c1, c2 = st.columns(2)
-        
-        # [지도 시각화] 좌표계 및 설정
-        coords = {
-            "서울": [37.5665, 126.9780], "경기": [37.4138, 127.5183], "인천": [37.4563, 126.7052],
-            "광명": [37.4784, 126.8643], "안양": [37.3910, 126.9269], "고양": [37.6584, 126.8320], "일산": [37.6584, 126.8320],
-            "부천": [37.5034, 126.7660], "시흥": [37.3801, 126.8031], "안산": [37.3195, 126.8308],
-            "성남": [37.4200, 127.1265], "분당": [37.3827, 127.1189], "용인": [37.2410, 127.1775],
-            "수원": [37.2636, 127.0286], "화성": [37.1995, 126.8315], "남양주": [37.6360, 127.2165],
-            "구로": [37.4954, 126.8874], "금천": [37.4565, 126.8954], "관악": [37.4782, 126.9515], "서울관악": [37.4782, 126.9515],
-            "동작": [37.5124, 126.9393], "사당": [37.4765, 126.9816], "영등포": [37.5264, 126.8962],
-            "마포": [37.5636, 126.9019], "서대문": [37.5791, 126.9368], "은평": [37.6027, 126.9291],
-            "강서": [37.5509, 126.8495], "양천": [37.5169, 126.8660],
-            "강남": [37.5172, 127.0473], "서초": [37.4837, 127.0324], "송파": [37.5145, 127.1066], "강동": [37.5301, 127.1238],
-            "노원": [37.6542, 127.0568], "도봉": [37.6688, 127.0471], "김포": [37.6152, 126.7157]
-        }
-        
-        df_map = df_summary['지역'].value_counts().reset_index()
-        df_map.columns = ['area', 'count']
-        
-        def get_coords(area_name):
-            if area_name in coords: return coords[area_name]
-            for k in coords:
-                if k in area_name: return coords[k]
-            return [37.5665, 126.9780]
-
-        df_map['lat'] = df_map['area'].apply(lambda x: get_coords(x)[0])
-        df_map['lon'] = df_map['area'].apply(lambda x: get_coords(x)[1])
-        
-        with c1: 
-            fig_map = px.scatter_mapbox(
-                df_map, lat="lat", lon="lon", size="count", color="count",
-                hover_name="area", size_max=25, 
-                zoom=8, # 경기도 전체가 보이도록 축소
-                center={"lat": 37.5, "lon": 127.0}, # 서울/경기 중심
-                title='📍 지역 분포 (서울/경기)',
-                mapbox_style="open-street-map", # 한글 지명을 위해 OSM 스타일 사용
-                height=400 # 지도 파악을 위해 높이 약간 확보
-            )
-            # 마진 조정
-            fig_map.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
-            st.plotly_chart(fig_map, use_container_width=True)
+            if self.ai.model:
+                with st.expander("✨ AI 산악회 비서 브리핑", expanded=True):
+                    if st.button("🔍 데이터 분석 실행", use_container_width=True):
+                        st.write(self.ai.get_briefing(df_summary))
             
-        with c2: st.plotly_chart(px.bar(df_summary, x='생년', y='현재포인트', color='회원상태', title='🎂 기수별 포인트'), use_container_width=True)
-        
-        c3, c4 = st.columns(2)
-        df_dist = self.db.query("SELECT birth_year, gender FROM members WHERE role<>'exmember'")
-        with c3: st.plotly_chart(px.histogram(df_dist, x='birth_year', title='📅 연도별 인원', text_auto=True), use_container_width=True)
-        with c4: st.plotly_chart(px.pie(df_dist, names='gender', title='🚻 성별 분포', hole=0.3), use_container_width=True)
+            st.divider()
+            
+            # Upcoming Events & Weather
+            c_event, c_weather = st.columns([1, 1])
+            
+            with c_event:
+                st.subheader("📅 다가오는 산행")
+                today_str = datetime.now(Config.KST).strftime('%Y-%m-%d')
+                try:
+                    # Upcoming events query
+                    df_up = self.db.query(f"SELECT * FROM events WHERE date >= '{today_str}' ORDER BY date ASC LIMIT 3")
+                    if not df_up.empty:
+                        for _, row in df_up.iterrows():
+                            # D-Day calc: Use pd.to_datetime to handle both str and Timestamp
+                            d_date = pd.to_datetime(row['date']).date()
+                            today_date = datetime.now(Config.KST).date()
+                            days_left = (d_date - today_date).days
+                            d_tag = "D-Day" if days_left == 0 else f"D-{days_left}"
+                            
+                            st.info(f"**[{d_tag}] {d_date}** | {row['title']}")
+                    else:
+                        st.info("예정된 산행이 없습니다.")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+            with c_weather:
+                st.markdown("##### 🌤️ 주간 날씨 (서울)")
+                try:
+                    # Open-Meteo API (Free, No Key)
+                    url = "https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo"
+                    res = requests.get(url, timeout=3).json()
+                    
+                    if 'daily' in res:
+                        d = res['daily']
+                        dates = d['time']
+                        codes = d['weather_code']
+                        max_t = d['temperature_2m_max']
+                        min_t = d['temperature_2m_min']
+                        
+                        # WMO Code Map
+                        def get_icon(c):
+                            if c == 0: return "☀️"
+                            if c in [1,2,3]: return "🌥️"
+                            if c in [45,48]: return "🌫️"
+                            if c in [51,53,55,61,63,65]: return "🌧️"
+                            if c in [71,73,75,77]: return "❄️"
+                            if c >= 95: return "⛈️"
+                            return "🌡️"
+
+                        # Display 7 days in columns
+                        cols = st.columns(7)
+                        for i in range(7): # Show full week
+                            with cols[i]:
+                                dt = datetime.strptime(dates[i], "%Y-%m-%d")
+                                dow = ["월", "화", "수", "목", "금", "토", "일"][dt.weekday()]
+                                st.markdown(f"""<div style="text-align: center; font-size: 12px; background-color: rgba(0,0,0,0.5); padding: 5px; border-radius: 8px;">
+                                {dt.strftime('%m/%d')}({dow})<br>
+                                <span style="font-size: 20px;">{get_icon(codes[i])}</span><br>
+                                <span style="color: #ff6b6b;">{int(max_t[i])}°</span> / <span style="color: #4ecdc4;">{int(min_t[i])}°</span>
+                                </div>""", unsafe_allow_html=True)
+                    else:
+                        st.error("날씨 정보 없음")
+                except Exception as e:
+                    st.error("날씨 로드 실패")
+
+            st.caption("📢 최근 일정 및 공지사항을 여기서 확인할 수 있습니다.")
+
+
+        # --- TAB 2: DEMOGRAPHICS ---
+        with tab_demo:
+            c3, c4 = st.columns(2)
+            df_dist = self.db.query("SELECT birth_year, gender FROM members WHERE role<>'exmember'")
+            
+            # 1. Age Composition (Circles with Gender Split)
+            with c3:
+                st.markdown("### 📅 연도별 인원 (Birth Year)")
+                st.caption("🟦 남성 | 🩷 여성 비율 시각화")
+                
+                if not df_dist.empty:
+                    # Data Processing
+                    # Normalizing gender first
+                    df_dist['gender_norm'] = df_dist['gender'].astype(str).str.upper().str.strip()
+                    gender_map = {'M': 'M', 'MALE': 'M', 'MAN': 'M', '남': 'M', '남성': 'M', 'F': 'F', 'FEMALE': 'F', 'WOMAN': 'F', 'W': 'F', '여': 'F', '여성': 'F'}
+                    df_dist['gender_final'] = df_dist['gender_norm'].map(gender_map).fillna('U')
+                    
+                    # Group by year and gender
+                    age_gender = df_dist.groupby(['birth_year', 'gender_final']).size().unstack(fill_value=0)
+                    
+                    # Ensure columns exist
+                    if 'M' not in age_gender.columns: age_gender['M'] = 0
+                    if 'F' not in age_gender.columns: age_gender['F'] = 0
+                    
+                    age_gender['total'] = age_gender.sum(axis=1)
+                    age_gender = age_gender.sort_index()
+
+                    # Max count for scaling size
+                    max_count = age_gender['total'].max()
+                    
+                    # HTML Generation
+                    html_balls = '<div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; padding: 10px;">'
+                    for year, row in age_gender.iterrows():
+                        year = int(year)
+                        count = int(row['total'])
+                        m_count = int(row['M'])
+                        f_count = int(row['F'])
+                        
+                        # Calculate percentage for gradient split
+                        m_pct = (m_count / count * 100) if count > 0 else 0
+                        # Hard stop gradient for split effect
+                        bg_style = f"background: linear-gradient(135deg, #3b82f6 {m_pct}%, #ec4899 {m_pct}%);"
+                        
+                        # Size calculation
+                        size = 50 + (count / max_count) * 50 if max_count > 0 else 50
+                        font_size = 14 + (count / max_count) * 6
+                        
+                        html_balls += f"""<div style="width: {size}px; height: {size}px; border-radius: 50%; {bg_style} color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s; border: 2px solid rgba(255,255,255,0.2);" title="{year}년생: {count}명 (남:{m_count}/여:{f_count})"><span style="font-weight: bold; font-size: {font_size}px; line-height: 1; text-shadow: 1px 1px 2px black;">{year}</span><span style="font-size: {font_size*0.7}px; opacity: 0.9; text-shadow: 1px 1px 2px black;">{count}명</span></div>"""
+                    html_balls += '</div>'
+                    st.markdown(html_balls, unsafe_allow_html=True)
+
+            # 2. Gender Composition (Icons)
+            with c4:
+                st.subheader("🚻 성별 분포 (Gender)")
+                if not df_dist.empty:
+                    gender_counts = df_dist['gender_final'].value_counts()
+                    total = len(df_dist)
+                                        
+                    m_count, f_count, u_count = gender_counts.get('M', 0), gender_counts.get('F', 0), gender_counts.get('U', 0)
+                    m_pct = (m_count / total * 100) if total > 0 else 0
+                    f_pct = (f_count / total * 100) if total > 0 else 0
+                    u_pct = (u_count / total * 100) if total > 0 else 0
+                    
+                    if u_count > 0:
+                        html_gender = f"""<div style="display: flex; justify-content: space-around; align-items: center; height: 100%; padding: 20px 0;"><div style="text-align: center;"><div style="font-size: 60px; color: #3b82f6;">♂️</div><div style="font-size: 18px; font-weight: bold; color: #333;">남성</div><div style="font-size: 14px; color: #555;">{m_count}명 ({m_pct:.1f}%)</div></div><div style="width: 1px; height: 80px; background-color: #eee;"></div><div style="text-align: center;"><div style="font-size: 60px; color: #ec4899;">♀️</div><div style="font-size: 18px; font-weight: bold; color: #333;">여성</div><div style="font-size: 14px; color: #555;">{f_count}명 ({f_pct:.1f}%)</div></div><div style="width: 1px; height: 80px; background-color: #eee;"></div><div style="text-align: center;"><div style="font-size: 60px; color: #9ca3af;">❓</div><div style="font-size: 18px; font-weight: bold; color: #333;">미상</div><div style="font-size: 14px; color: #555;">{u_count}명 ({u_pct:.1f}%)</div></div></div>"""
+                    else:
+                        html_gender = f"""<div style="display: flex; justify-content: space-around; align-items: center; height: 100%; padding: 20px 0;"><div style="text-align: center;"><div style="font-size: 80px; color: #3b82f6;">♂️</div><div style="font-size: 24px; font-weight: bold; color: #333;">남성</div><div style="font-size: 18px; color: #555;">{m_count}명 ({m_pct:.1f}%)</div></div><div style="width: 2px; height: 100px; background-color: #eee;"></div><div style="text-align: center;"><div style="font-size: 80px; color: #ec4899;">♀️</div><div style="font-size: 24px; font-weight: bold; color: #333;">여성</div><div style="font-size: 18px; color: #555;">{f_count}명 ({f_pct:.1f}%)</div></div></div>"""
+                    
+                    st.markdown(html_gender, unsafe_allow_html=True)
+            
+            st.divider()
+            
+            c1, c2 = st.columns(2)
+            # [Map Visualization]
+            coords = {
+                "서울": [37.5665, 126.9780], "경기": [37.4138, 127.5183], "인천": [37.4563, 126.7052],
+                "광명": [37.4784, 126.8643], "안양": [37.3910, 126.9269], "고양": [37.6584, 126.8320], "일산": [37.6584, 126.8320],
+                "부천": [37.5034, 126.7660], "시흥": [37.3801, 126.8031], "안산": [37.3195, 126.8308],
+                "성남": [37.4200, 127.1265], "분당": [37.3827, 127.1189], "용인": [37.2410, 127.1775],
+                "수원": [37.2636, 127.0286], "화성": [37.1995, 126.8315], "남양주": [37.6360, 127.2165],
+                "구로": [37.4954, 126.8874], "금천": [37.4565, 126.8954], "관악": [37.4782, 126.9515], "서울관악": [37.4782, 126.9515],
+                "동작": [37.5124, 126.9393], "사당": [37.4765, 126.9816], "영등포": [37.5264, 126.8962],
+                "마포": [37.5636, 126.9019], "서대문": [37.5791, 126.9368], "은평": [37.6027, 126.9291],
+                "강서": [37.5509, 126.8495], "양천": [37.5169, 126.8660],
+                "강남": [37.5172, 127.0473], "서초": [37.4837, 127.0324], "송파": [37.5145, 127.1066], "강동": [37.5301, 127.1238],
+                "노원": [37.6542, 127.0568], "도봉": [37.6688, 127.0471], "김포": [37.6152, 126.7157]
+            }
+            
+            df_map = df_summary['지역'].value_counts().reset_index()
+            df_map.columns = ['area', 'count']
+            
+            def get_coords(area_name):
+                if area_name in coords: return coords[area_name]
+                for k in coords:
+                    if k in area_name: return coords[k]
+                return [37.5665, 126.9780]
+
+            df_map['lat'] = df_map['area'].apply(lambda x: get_coords(x)[0])
+            df_map['lon'] = df_map['area'].apply(lambda x: get_coords(x)[1])
+            
+            with c1: 
+                fig_map = px.scatter_mapbox(
+                    df_map, lat="lat", lon="lon", size="count", color="count",
+                    hover_name="area", size_max=25, zoom=8, 
+                    center={"lat": 37.5, "lon": 127.0},
+                    title='📍 지역 분포 (서울/경기)',
+                    mapbox_style="open-street-map", height=400
+                )
+                fig_map.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
+                st.plotly_chart(fig_map, use_container_width=True)
+                
+            # [NEW] Top Regions Bar Chart
+            with c2:
+                st.subheader("🏙️ Top 5 활동 지역")
+                top_regions = df_map.head(5)
+                max_reg = top_regions['count'].max()
+                
+                bar_html = "<div style='padding: 10px;'>"
+                for _, row in top_regions.iterrows():
+                    pct = (row['count'] / max_reg) * 100
+                    bar_html += f"""<div style="margin-bottom: 12px;"><div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span style="font-weight: bold; color: #333;">{row['area']}</span><span style="font-weight: bold; color: #2575fc;">{row['count']}명</span></div><div style="width: 100%; background-color: #eee; border-radius: 6px; height: 12px;"><div style="width: {pct}%; background: linear-gradient(90deg, #2575fc, #6a11cb); height: 100%; border-radius: 6px;"></div></div></div>"""
+                bar_html += "</div>"
+                st.markdown(bar_html, unsafe_allow_html=True)
+
+
+        # --- TAB 3: ACTIVITY (HALL OF FAME) ---
+        # --- TAB 3: MONTHLY ACTIVITY (HALL OF FAME) ---
+        with tab_activity:
+            now = datetime.now(Config.KST)
+            cur_month_str = now.strftime('%Y-%m')
+            st.subheader(f"🏆 {now.month}월의 명예의 전당")
+            
+            c_host, c_attend, c_event = st.columns(3)
+            
+            # Helper for Rank Bubbles
+            def get_rank_html(rank, text, subtext):
+                colors = ["#FFD700", "#C0C0C0", "#CD7F32"] # Gold, Silver, Bronze
+                color = colors[rank] if rank < 3 else "#FFFFFF"
+                rank_num = rank + 1
+                return f"""
+                <div style="background-color: rgba(0,0,0,0.4); padding: 10px; border-radius: 8px; margin-bottom: 6px; display: flex; align-items: center;">
+                    <div style="width: 30px; height: 30px; border-radius: 50%; background-color: {color}; color: #000; font-weight: bold; display: flex; align-items: center; justify-content: center; margin-right: 10px; flex-shrink: 0;">{rank_num}</div>
+                    <div style="flex-grow: 1;"><b>{text}</b></div>
+                    <div style="font-size: 14px; color: #eee;">{subtext}</div>
+                </div>
+                """
+
+            # 1. Top Hosts (공지왕)
+            with c_host:
+                st.markdown("##### 📣 이달의 공지왕")
+                try:
+                    df_host = self.db.query(f"SELECT m.name, COUNT(*) as cnt FROM events e JOIN members m ON e.host = m.user_no WHERE strftime('%Y-%m', e.date) = '{cur_month_str}' GROUP BY m.name ORDER BY cnt DESC LIMIT 3")
+                    if not df_host.empty:
+                        for idx, row in df_host.iterrows():
+                            st.markdown(get_rank_html(idx, row['name'], f"{row['cnt']}회"), unsafe_allow_html=True)
+                    else:
+                        st.caption("데이터 없음")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+            # 2. Top Attendees (참석왕 - 획득점수 기준)
+            with c_attend:
+                st.markdown("##### 🏃 이달의 참석왕")
+                try:
+                    top_scorers = active_members.sort_values(by='획득점수', ascending=False).head(3)
+                    if not top_scorers.empty:
+                        for i in range(len(top_scorers)):
+                            row = top_scorers.iloc[i]
+                            st.markdown(get_rank_html(i, row['MemberID'], f"{int(row['획득점수'])}점"), unsafe_allow_html=True)
+                    else:
+                        st.caption("데이터 없음")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+            # 3. Most Popular Events (인기 산행)
+            with c_event:
+                st.markdown("##### 🔥 이달의 인기 산행")
+                try:
+                    df_pop = self.db.query(f"SELECT e.title, COUNT(a.user_no) as cnt FROM events e JOIN attendees a ON e.event_id = a.event_id WHERE strftime('%Y-%m', e.date) = '{cur_month_str}' GROUP BY e.title ORDER BY cnt DESC LIMIT 3")
+                    if not df_pop.empty:
+                        for idx, row in df_pop.iterrows():
+                            st.markdown(get_rank_html(idx, row['title'], f"{row['cnt']}명"), unsafe_allow_html=True)
+                    else:
+                        st.caption("데이터 없음")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+            
+            st.divider()
+            st.plotly_chart(px.bar(df_summary, x='생년', y='현재포인트', color='회원상태', title='🎂 기수별 포인트 분포'), use_container_width=True)
+
+
 
     def view_members(self):
         st.header("👥 회원 명부 관리")
