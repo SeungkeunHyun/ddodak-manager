@@ -255,7 +255,19 @@ class UIRenderer:
             # 1. Age Composition (Circles with Gender Split)
             with c3:
                 st.markdown("### 📅 연도별 인원 (Birth Year)")
-                st.caption("🟦 남성 | 🩷 여성 비율 시각화")
+                # Visual Legend
+                st.markdown("""
+                <div style="display: flex; gap: 15px; margin-bottom: 10px; font-size: 14px; color: #eee; background-color: rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 8px; width: fit-content;">
+                    <div style="display: flex; align-items: center;">
+                        <span style="display: inline-block; width: 12px; height: 12px; background-color: #3b82f6; border-radius: 50%; margin-right: 6px;"></span>
+                        <span>남성 (Male)</span>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <span style="display: inline-block; width: 12px; height: 12px; background-color: #ec4899; border-radius: 50%; margin-right: 6px;"></span>
+                        <span>여성 (Female)</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
                 
                 if not df_dist.empty:
                     # Data Processing
@@ -486,7 +498,7 @@ class UIRenderer:
             "name": st.column_config.TextColumn("이름", width="medium"),
             "area": st.column_config.TextColumn("지역", width="small"),
             "role": st.column_config.SelectboxColumn("역할", options=['member', 'admin', 'staff', 'exmember'], width="small"),
-            "user_no": st.column_config.TextColumn("ID", disabled=True), 
+            "user_no": st.column_config.TextColumn("ID", disabled=False), 
         }
         
         updated = st.data_editor(
