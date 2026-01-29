@@ -114,7 +114,11 @@ class Styles:
                 padding: 24px !important;
                 box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
                 transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-                color: {c.text_primary};
+                color: {c.text_primary} !important;
+            }}
+            
+            .glass-card * {{
+                color: inherit !important;
             }}
             
             /* 3D Hover Effect */

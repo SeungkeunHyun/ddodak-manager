@@ -1,5 +1,8 @@
 # 1. 파이썬 3.11 슬림 버전 사용
 FROM python:3.11-slim
+
+# Force Cache Invalidation
+ENV BUILD_ID=v4.27
 # RUN apt-get update && apt-get install -y \
 #     build-essential \
 #     && rm -rf /var/lib/apt/lists/*

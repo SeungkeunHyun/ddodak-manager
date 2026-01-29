@@ -26,6 +26,10 @@ def main():
         initial_sidebar_state="expanded"
     )
 
+    with st.sidebar:
+        st.title("⛰️ 또닥또닥 산악회")
+        st.caption("🚀 App Version: v4.25 (KPI Fix)")
+
     # 2. Authentication
     
     # [Visuals] Apply Global Styles & Background (Before Login)

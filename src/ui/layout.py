@@ -13,14 +13,7 @@ class Layout:
         사이드바 메뉴를 렌더링하고 선택된 페이지를 반환합니다.
         """
         with st.sidebar:
-            st.title("⛰️ 또닥 산악회")
-            
-            # 라이브러리 및 모델 정보 표시 (디버깅용)
-            try: ver = importlib.metadata.version("google-generativeai")
-            except: ver = "Unknown"
-            
-            st.caption(f"🛠️ Lib: v{ver} | 🤖 AI: {ai_model_name}")
-            st.divider()
+            # Title & Version are handled in app.py now
             
             # 네비게이션 메뉴
             return st.radio("메뉴 이동", ["🏠 홈", "👥 회원 관리", "📅 공지 관리", "🏃 참가 체크", "📊 보고서 생성"])

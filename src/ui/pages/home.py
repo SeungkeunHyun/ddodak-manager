@@ -92,11 +92,12 @@ class HomePage:
         
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.markdown(Styles.card_template(f"""<div style="font-size: 15px; color: {c.primary}; font-weight: bold;">총 회원수</div><div style="font-size: 38px; font-weight: bold; color: {c.text_primary};">{total_members}</div>""", extra_classes="neon-border-cyan"), unsafe_allow_html=True)
+            # Force White/Light colors for visibility on dark background
+            st.markdown(Styles.card_template(f"""<span style="font-size: 15px; color: #b7e4c7 !important; font-weight: bold;">총 회원수</span><br><span style="font-size: 38px; font-weight: bold; color: #ffffff !important;">{total_members}</span>""", extra_classes="neon-border-cyan"), unsafe_allow_html=True)
         with c2:
-            st.markdown(Styles.card_template(f"""<div style="font-size: 15px; color: {c.secondary}; font-weight: bold;">최근 활동 회원</div><div style="font-size: 38px; font-weight: bold; color: {c.text_primary};">{active_count}</div>""", extra_classes="neon-border-green"), unsafe_allow_html=True)
+            st.markdown(Styles.card_template(f"""<span style="font-size: 15px; color: #b7e4c7 !important; font-weight: bold;">최근 활동 회원</span><br><span style="font-size: 38px; font-weight: bold; color: #ffffff !important;">{active_count}</span>""", extra_classes="neon-border-green"), unsafe_allow_html=True)
         with c3:
-            st.markdown(Styles.card_template(f"""<div style="font-size: 15px; color: {c.accent}; font-weight: bold;">누적 포인트</div><div style="font-size: 38px; font-weight: bold; color: {c.text_primary};">{int(total_activity_score):,}</div>""", extra_classes="neon-border-magenta"), unsafe_allow_html=True)
+            st.markdown(Styles.card_template(f"""<span style="font-size: 15px; color: #b7e4c7 !important; font-weight: bold;">누적 포인트</span><br><span style="font-size: 38px; font-weight: bold; color: #ffffff !important;">{int(total_activity_score):,}</span>""", extra_classes="neon-border-magenta"), unsafe_allow_html=True)
         
         st.markdown("---")
         
