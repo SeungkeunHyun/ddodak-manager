@@ -24,6 +24,15 @@ class Config:
     # 회칙 링크 (보고서 생성 시 사용)
     RULES_URL = "https://www.band.us/band/85157163/post/4765"
     
+    # [Naver Band Authenticatoin]
+    # BAND API Console: https://developers.band.us/
+    BAND_CLIENT_ID = os.getenv("BAND_CLIENT_ID", "") 
+    BAND_CLIENT_SECRET = os.getenv("BAND_CLIENT_SECRET", "")
+    # Default Redirect URI for local docker
+    BAND_REDIRECT_URI = os.getenv("BAND_REDIRECT_URI", "http://localhost:8501")
+    # The Band ID (Numeric) used for validation - though API uses Band Key
+    TARGET_BAND_ID = "85157163" 
+    
     # 관리자 로그인 정보 (Streamlit Authenticator 사용)
     CREDENTIALS = {
         "usernames": {

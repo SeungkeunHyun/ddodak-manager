@@ -4,6 +4,7 @@ import streamlit_authenticator as stauth
 from src.config import Config
 from src.services.db_service import DBService
 from src.services.ai_service import AIService
+from src.services.band_auth_service import BandAuthService
 from src.ui.styles import Styles
 from src.ui.layout import Layout
 from src.ui.pages.home import HomePage
@@ -26,16 +27,61 @@ def main():
     )
 
     # 2. Authentication
-    auth = stauth.Authenticate(Config.CREDENTIALS, "ddodak_cookie", "ddodak_key")
-    auth.login(location='main')
+    
+    # [Visuals] Apply Global Styles & Background (Before Login)
+    Styles.apply_custom_css()
+    
+    # [Naver Band Auth Integration]
+    band_auth = BandAuthService(
+        client_id=Config.BAND_CLIENT_ID,
+        client_secret=Config.BAND_CLIENT_SECRET,
+        redirect_uri=Config.BAND_REDIRECT_URI
+    )
+    
+    # Check for OAuth Callback
+    if "code" in st.query_params:
+        code = st.query_params["code"]
+        token = band_auth.exchange_code_for_token(code)
+        if token:
+            user_bands = band_auth.get_user_bands(token)
+            # Find Target Band (ID: 85157163)
+            target_band = next((b for b in user_bands if str(b.get("band_sn")) == Config.TARGET_BAND_ID), None)
+            
+            if target_band:
+                band_key = target_band.get("band_key")
+                if band_key and band_auth.get_permissions(token, band_key):
+                    st.session_state["authentication_status"] = True
+                    st.session_state["name"] = target_band.get("name", "Band Member")
+                    st.session_state["username"] = "band_user"
+                    st.query_params.clear()
+                    st.rerun()
+            else:
+                 st.error(f"가입된 밴드 목록에서 목표 밴드(ID: {Config.TARGET_BAND_ID})를 찾을 수 없습니다.")
 
+    auth = stauth.Authenticate(Config.CREDENTIALS, "ddodak_cookie", "ddodak_key")
+    
+    # Render Login UI (Hybrid - Centered)
+    if not st.session_state.get("authentication_status"):
+        # Use columns to center the login box
+        _, col_center, _ = st.columns([1, 2, 1])
+        with col_center:
+            st.markdown("### 관리자 로그인")
+            auth.login(location='main')
+            
+            st.markdown("---")
+            st.markdown("<div style='text-align: center; color: #888; font-size: 0.9em; margin-bottom: 10px;'>또는</div>", unsafe_allow_html=True)
+            
+            auth_url = band_auth.get_authorization_url()
+            # Full width button for better mobile/desktop visuals
+            st.link_button("🟩 네이버 밴드로 로그인 (리더/공동리더 권한)", auth_url, use_container_width=True)
+            
     if st.session_state["authentication_status"]:
         # 3. Initialize Services
         db = DBService()
         ai = AIService()
 
         # 4. Apply Global Styles
-        Styles.apply_custom_css()
+        # Styles.apply_custom_css() # Moved to global scope
 
         # 5. Render Layout & Navigation
         choice = Layout.render_sidebar(ai.model_name)
@@ -45,7 +91,7 @@ def main():
             HomePage(db, ai).render()
         elif choice == "👥 회원 관리":
             MembersPage(db).render()
-        elif choice == "📅 산행 일정":
+        elif choice == "📅 공지 관리":
             EventsPage(db).render()
         elif choice == "🏃 참가 체크":
             AttendancePage(db).render()

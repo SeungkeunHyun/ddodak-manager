@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from src.config import Config
 from src.ui.layout import Layout
 from src.ui.styles import Styles
+from src.ui.themes import ThemeManager
 
 # =========================================================
 # Page: Home (Dashboard)
@@ -22,25 +23,56 @@ class HomePage:
         # 타이틀에 애니메이션 효과 적용 (CSS Class 활용 가능)
         st.title("⛰️ 또닥또닥 산악회")
         
+        # [PDF 출력 모드 설정]
+        col_title, col_print = st.columns([3, 1])
+        with col_print:
+            pdf_mode = st.toggle("🖨️ PDF 출력 모드", key="pdf_mode_toggle", help="모든 인포그래픽을 한 화면에 표시하여 PDF로 저장하기 좋게 만듭니다.")
+            if pdf_mode:
+                st.button("📄 PDF 파일로 저장", on_click=lambda: st.components.v1.html("<script>window.print();</script>", height=0))
+        
         # [데이터 로드]
         # v2.24.2 Hotfix: df_summary 정의 복구
         df_summary = self.db.query("SELECT * FROM v_member_attendance_summary")
         # v2.24.4 Hotfix: active_members 정의 복구
         active_members = df_summary[df_summary['회원상태'] != 'exmember']
         
-        # [탭 구조]
-        tab_overview, tab_demo, tab_activity = st.tabs(["📊 대시보드 (Overview)", "👥 회원 구성 (Demographics)", "🏆 명예의 전당 (Hall of Fame)"])
-        
-        # --- [TAB 1] 종합 현황 (Overview) ---
-        with tab_overview:
+        # [사이드바 AI 브리핑 버튼]
+        with st.sidebar:
+            st.divider()
+            st.subheader("🤖 AI 비서")
+            if st.button("✨ 월간 브리핑 생성", use_container_width=True):
+                today = datetime.now().strftime("%Y-%m-%d")
+                upcoming = self.db.query(f"SELECT * FROM events WHERE date >= '{today}' ORDER BY date ASC LIMIT 3")
+                if upcoming.empty:
+                    st.sidebar.warning("예정된 산행 데이터가 없습니다.")
+                else:
+                    self._show_ai_briefing(upcoming)
+
+        # [탭 또는 전체 보기 구조]
+        if not pdf_mode:
+            tab_overview, tab_demo, tab_activity = st.tabs(["📊 대시보드 (Overview)", "👥 회원 구성 (Demographics)", "🏆 명예의 전당 (Hall of Fame)"])
+            
+            # --- [TAB 1] 종합 현황 (Overview) ---
+            with tab_overview: self._render_overview(df_summary)
+
+            # --- [TAB 2] 회원 통계 (Demographics) ---
+            with tab_demo: self._render_demographics(df_summary)
+
+            # --- [TAB 3] 명예의 전당 (Hall of Fame) ---
+            with tab_activity: self._render_hall_of_fame(df_summary, active_members)
+        else:
+            # PDF 모드: 모든 내용을 위에서 아래로 순차적으로 렌더링
+            st.info("💡 **PDF 출력 모드 활성화됨**: 모든 탭의 내용이 아래로 펼쳐집니다. 상단의 'PDF 파일로 저장' 버튼을 눌러주세요.")
+            
+            st.markdown("### 📊 [1] 종합 현황 (Overview)")
             self._render_overview(df_summary)
-
-        # --- [TAB 2] 회원 통계 (Demographics) ---
-        with tab_demo:
+            
+            st.divider()
+            st.markdown("### 👥 [2] 회원 구성 (Demographics)")
             self._render_demographics(df_summary)
-
-        # --- [TAB 3] 명예의 전당 (Hall of Fame) ---
-        with tab_activity:
+            
+            st.divider()
+            st.markdown("### 🏆 [3] 명예의 전당 (Hall of Fame)")
             self._render_hall_of_fame(df_summary, active_members)
 
     def _render_overview(self, df_summary):
@@ -56,13 +88,15 @@ class HomePage:
         three_months_ago = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
         active_count = self.db.query(f"SELECT COUNT(DISTINCT user_no) FROM attendees a JOIN events e ON a.event_id = e.event_id WHERE e.date >= '{three_months_ago}'").iloc[0,0]
 
+        c = ThemeManager.current.colors
+        
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.markdown(Styles.card_template(f"""<div style="font-size: 16px; opacity: 0.8; margin-bottom: 5px;">총 회원수</div><div style="font-size: 32px; font-weight: bold;">{total_members}명</div>"""), unsafe_allow_html=True)
+            st.markdown(Styles.card_template(f"""<div style="font-size: 15px; color: {c.primary}; font-weight: bold;">총 회원수</div><div style="font-size: 38px; font-weight: bold; color: {c.text_primary};">{total_members}</div>""", extra_classes="neon-border-cyan"), unsafe_allow_html=True)
         with c2:
-            st.markdown(Styles.card_template(f"""<div style="font-size: 16px; opacity: 0.8; margin-bottom: 5px;">최근 활동 회원</div><div style="font-size: 32px; font-weight: bold; color: #4ade80;">{active_count}명</div>"""), unsafe_allow_html=True)
+            st.markdown(Styles.card_template(f"""<div style="font-size: 15px; color: {c.secondary}; font-weight: bold;">최근 활동 회원</div><div style="font-size: 38px; font-weight: bold; color: {c.text_primary};">{active_count}</div>""", extra_classes="neon-border-green"), unsafe_allow_html=True)
         with c3:
-            st.markdown(Styles.card_template(f"""<div style="font-size: 16px; opacity: 0.8; margin-bottom: 5px;">누적 활동 점수</div><div style="font-size: 32px; font-weight: bold; color: #ffd700;">{int(total_activity_score):,}점</div>"""), unsafe_allow_html=True)
+            st.markdown(Styles.card_template(f"""<div style="font-size: 15px; color: {c.accent}; font-weight: bold;">누적 포인트</div><div style="font-size: 38px; font-weight: bold; color: {c.text_primary};">{int(total_activity_score):,}</div>""", extra_classes="neon-border-magenta"), unsafe_allow_html=True)
         
         st.markdown("---")
         
@@ -100,17 +134,24 @@ class HomePage:
                     # 날짜 형식 처리 (시간 정보 제거)
                     display_date = pd.to_datetime(row['date']).strftime('%Y-%m-%d')
                     
+                    c = ThemeManager.current.colors
+                    
                     st.markdown(f"""
-                    <div style="background-color: rgba(255,255,255,0.05); padding: 12px; border-radius: 12px; margin-bottom: 12px; border-left: 5px solid {badge_color}; transition: transform 0.2s ease;">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div style="font-weight: bold; font-size: 16px; color: #fff; margin-bottom: 8px;">{row['title']}</div>
-                            <div style="background-color: {badge_color}; color: white; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">{badge}</div>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
-                            <img src="{img_url}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255,255,255,0.2);">
-                            <div style="display: flex; flex-direction: column;">
-                                <div style="color: #eee; font-size: 13px; font-weight: 500;">📅 {display_date}</div>
-                                <div style="color: #aaa; font-size: 12px;">👑 {host_info}</div>
+                    <div style="background: {c.card_bg}; border-radius: 12px; margin-bottom: 12px; border: 1px solid {c.border}; display: flex; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: transform 0.3s ease;" class="hover-3d">
+                        <div style="width: 6px; background: {badge_color};"></div>
+                        <div style="flex-grow: 1; padding: 12px; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <span style="background-color: {badge_color}22; color: {badge_color}; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">{badge}</span>
+                                    <span style="font-weight: bold; font-size: 16px; color: {c.text_primary};">{row['title']}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <img src="{img_url}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 1px solid {c.border};">
+                                    <div style="display: flex; flex-direction: column;">
+                                        <div style="color: {c.text_secondary}; font-size: 13px; font-weight: 500;">📅 {display_date}</div>
+                                        <div style="color: {c.text_secondary}; font-size: 12px; opacity: 0.8;">👑 {host_info}</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -125,16 +166,6 @@ class HomePage:
             self._render_weather_forecast()
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # 3. AI Briefing
-        st.markdown("---")
-        st.subheader("🤖 AI 주간 브리핑")
-        if st.button("✨ 이번 주 산행 & 날씨 브리핑 생성"):
-            check_events = self.db.query(f"SELECT * FROM events WHERE date >= '{today}' LIMIT 1")
-            if check_events.empty:
-                st.warning("예정된 산행 데이터가 없어 브리핑을 생성할 수 없습니다.")
-            else:
-                self._show_ai_briefing(upcoming)
-        
         # 4. 최근 공지 분석 (Relocated from Demographics)
         st.markdown("---")
         self._render_event_analysis()
@@ -260,7 +291,7 @@ class HomePage:
         <div style="display: flex; align-items: center;"><span style="width: 10px; height: 10px; background-color: #ec4899; border-radius: 50%; margin-right: 5px;"></span>여성 (Female)</div>
         <div style="display: flex; align-items: center;"><span style="width: 10px; height: 10px; background-color: #9ca3af; border-radius: 50%; margin-right: 5px;"></span>미상 (Unknown)</div>
     </div>
-    <div style="margin-top: 5px; font-size: 11px; color: #888;">* 동그라미 크기는 인원수에 비례합니다.</div>
+    <div style="margin-top: 5px; font-size: 13px; color: #bbb;">* 동그라미 크기는 인원수에 비례합니다.</div>
 </div>"""
                 st.markdown(html_gender, unsafe_allow_html=True)
         
@@ -328,7 +359,7 @@ class HomePage:
         )
         
         st.plotly_chart(fig_map, use_container_width=True)
-        st.markdown("""<div style="text-align: right; font-size: 11px; color: #aaa; margin-top: -10px;">* 위치는 실제 지도 좌표를 바탕으로 단순화된 모식도입니다.</div>""", unsafe_allow_html=True)
+        st.markdown("""<div style="text-align: right; font-size: 13px; color: #bbb; margin-top: -10px;">* 위치는 실제 지도 좌표를 바탕으로 단순화된 모식도입니다.</div>""", unsafe_allow_html=True)
 
     def _render_event_analysis(self):
         c1, c2 = st.columns([1, 1.2])
@@ -407,22 +438,22 @@ class HomePage:
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
 <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
 <div style="font-size: 22px; margin-bottom: 8px;">📈</div>
-<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">평균 (연간)</div>
+<div style="font-size: 13px; color: #ddd; margin-bottom: 4px;">평균 (연간)</div>
 <div style="font-size: 22px; font-weight: bold; color: #10b981;">{avg_v:.1f}회</div>
 </div>
 <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
 <div style="font-size: 22px; margin-bottom: 8px;">🏆</div>
-<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">최다 ({peak_m})</div>
+<div style="font-size: 13px; color: #ddd; margin-bottom: 4px;">최다 ({peak_m})</div>
 <div style="font-size: 22px; font-weight: bold; color: #3b82f6;">{int(peak_v)}회</div>
 </div>
 <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
 <div style="font-size: 22px; margin-bottom: 8px;">📉</div>
-<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">최소 ({low_m})</div>
+<div style="font-size: 13px; color: #ddd; margin-bottom: 4px;">최소 ({low_m})</div>
 <div style="font-size: 22px; font-weight: bold; color: #f59e0b;">{int(low_v)}회</div>
 </div>
 <div style="background: rgba(236, 72, 153, 0.1); border: 1px solid rgba(236, 72, 153, 0.2); padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
 <div style="font-size: 22px; margin-bottom: 8px;">🔔</div>
-<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">이번 달</div>
+<div style="font-size: 13px; color: #ddd; margin-bottom: 4px;">이번 달</div>
 <div style="font-size: 22px; font-weight: bold; color: #ec4899;">{int(curr_v)}회</div>
 </div>
 </div>"""
@@ -440,20 +471,26 @@ class HomePage:
         
         def get_rank_html(rank, text, subtext, img_url=None):
             colors = ["#FFD700", "#C0C0C0", "#CD7F32"] 
-            color = colors[rank] if rank < 3 else "#FFFFFF"
+            color = colors[rank] if rank < 3 else "rgba(128,128,128,0.5)"
             rank_num = rank + 1
+            
+            c = ThemeManager.current.colors
             
             # 이미지 URL이 없으면 기본 아바타 사용
             if not img_url:
                 img_url = f"https://ui-avatars.com/api/?name={text}&background=random"
-                
+            
+            border_style = f"border: 2px solid {color};" if rank < 3 else f"border: 1px solid {c.border};"
+            
             return f"""
-            <div style="background-color: rgba(0,0,0,0.4); padding: 10px; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; border: 1px solid rgba(255,255,255,0.05); transition: transform 0.2s;">
-                <div style="width: 28px; height: 28px; border-radius: 50%; background-color: {color}; color: #000; font-weight: bold; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">{rank_num}</div>
-                <img src="{img_url}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; margin-right: 12px; border: 1.5px solid {color if rank < 3 else 'rgba(255,255,255,0.2)'};">
+            <div class="glass-card hover-3d" style="{border_style} padding: 12px; margin-bottom: 10px; display: flex; align-items: center; background: {c.card_bg};">
+                <div style="position: relative; margin-right: 15px;">
+                    <img src="{img_url}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid {color if rank < 3 else c.border};">
+                    <div style="position: absolute; bottom: -5px; right: -5px; width: 20px; height: 20px; background-color: {color}; color: #000; font-weight: bold; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">{rank_num}</div>
+                </div>
                 <div style="flex-grow: 1;">
-                    <div style="font-weight: bold; color: #fff; font-size: 15px;">{text}</div>
-                    <div style="font-size: 12px; color: #aaa;">{subtext}</div>
+                    <div style="font-weight: bold; color: {c.text_primary}; font-size: 15px;">{text}</div>
+                    <div style="font-size: 13px; color: {c.text_secondary}; font-weight: 500;">{subtext}</div>
                 </div>
             </div>
             """
@@ -515,7 +552,7 @@ class HomePage:
                             <div style="width: 28px; height: 28px; border-radius: 50%; background-color: #FFFFFF; color: #000; font-weight: bold; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0; font-size: 14px;">{idx+1}</div>
                             <div style="flex-grow: 1;">
                                 <div style="font-weight: bold; color: #fff; font-size: 14px;">{row['title']}</div>
-                                <div style="font-size: 12px; color: #aaa;">{row['cnt']}명 참석</div>
+                                <div style="font-size: 13px; color: #ddd;">{row['cnt']}명 참석</div>
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
@@ -525,7 +562,83 @@ class HomePage:
                 st.error(f"Error: {e}")
         
         st.divider()
-        st.plotly_chart(px.bar(df_summary, x='생년', y='현재포인트', color='회원상태', title='🎂 기수별 포인트 분포'), use_container_width=True)
+        # [생년별 포인트 -> 이달의 생년별 참가 현황]
+        try:
+            # 1. 모든 활성 회원의 생년 기종 추출
+            df_all_births = self.db.query("SELECT DISTINCT birth_year FROM members WHERE role<>'exmember' ORDER BY birth_year")
+            
+            # 2. 이달의 참가 데이터 추출 (실인원 기준: 중복 제거)
+            df_curr_attend_raw = self.db.query(f"""
+                SELECT m.birth_year, COUNT(DISTINCT a.user_no) as cnt
+                FROM attendees a
+                JOIN events e ON a.event_id = e.event_id
+                JOIN members m ON a.user_no = m.user_no
+                WHERE strftime('%Y-%m', e.date) = '{cur_month_str}'
+                GROUP BY m.birth_year
+            """)
+            
+            # 3. 모든 생년에 대해 데이터 병합 (없으면 0)
+            if not df_all_births.empty:
+                df_final = pd.merge(df_all_births, df_curr_attend_raw, on='birth_year', how='left').fillna(0)
+                df_final['생년'] = df_final['birth_year'].astype(int).astype(str).str[-2:] + "년"
+                
+                c = ThemeManager.current.colors
+                
+                # 차트 생성 (Mockup 기반 프리미엄 디자인)
+                fig_attend = px.bar(
+                    df_final, x='생년', y='cnt',
+                    labels={'cnt': '참가 인원', '생년': '생년별'},
+                    text='cnt',
+                    color='cnt',
+                    # Dynamic Theme Colors
+                    color_continuous_scale=c.chart_colors
+                )
+                
+                fig_attend.update_traces(
+                    textposition='outside',
+                    marker_line_color=c.border,
+                    marker_line_width=1.5,
+                    opacity=0.85,
+                    hovertemplate="<b>%{x}</b><br>참가: %{y}명<extra></extra>"
+                )
+                
+                fig_attend.update_layout(
+                    title={
+                        'text': f"📅 {now.month}월 생년별 참가 분포 (실인원 기준)",
+                        'y':0.95, 'x':0.5, 'xanchor': 'center', 'yanchor': 'top',
+                        'font': {'size': 20, 'color': c.text_primary, 'family': ThemeManager.current.font_header}
+                    },
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor=c.card_bg, # Use card bg for plot area integration
+                    xaxis=dict(
+                        showgrid=False, 
+                        tickfont=dict(color='#eee', size=13),
+                        title=None
+                    ),
+                    yaxis=dict(
+                        gridcolor='rgba(255,255,255,0.05)',
+                        tickfont=dict(color='#eee', size=13),
+                        title=dict(text="참가 인원수", font=dict(color='#bbb', size=13))
+                    ),
+                    showlegend=False,
+                    coloraxis_showscale=False,
+                    height=450,
+                    margin=dict(t=80, b=40, l=40, r=40)
+                )
+                
+                st.plotly_chart(fig_attend, use_container_width=True)
+                
+                # 총 참가 인원 요약
+                total_m_attend = int(df_final['cnt'].sum())
+                st.markdown(f"""
+                <div style="text-align: center; color: #ddd; font-size: 15px; margin-top: -10px;">
+                    🎯 이번 달 총 참가 실인원: <span style="color: #ec4899; font-weight: bold; font-size: 19px;">{total_m_attend}명</span> (생년별 중복 제외 합계)
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info(f"📅 생년 데이터가 없습니다.")
+        except Exception as e:
+            st.error(f"Chart Render Error: {e}")
 
     def _render_weather_forecast(self):
         try:
@@ -576,7 +689,7 @@ class HomePage:
                     if self.ai and self.ai.model:
                         response = self.ai.model.generate_content(f"""
                         당신은 '또닥또닥 산악회'의 AI 비서입니다. 
-                        다음 일정 정보를 바탕으로 회원들에게 전할 활기차고 유용한 주간 브리핑을 작성해주세요.
+                        다음 일정 정보를 바탕으로 회원들에게 전할 활기차고 유용한 월간 브리핑을 작성해주세요.
                         날씨 언급은 일반적인 계절감을 섞어서 해주세요.
                         
                         [정보]

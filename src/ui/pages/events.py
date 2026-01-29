@@ -11,8 +11,8 @@ class EventsPage:
         self.db = db
 
     def render(self):
-        Layout.render_manual("산행 일정")
-        st.header("📅 산행 일정 관리")
+        Layout.render_manual("공지 관리")
+        st.header("📅 공지 관리")
         df_e = self.db.query("SELECT * FROM events ORDER BY date DESC")
         
         # [일정 검색 및 필터]
@@ -34,14 +34,18 @@ class EventsPage:
         df_filtered = df_e[mask]
         st.subheader(f"🗓️ 등록된 일정 (표시: {len(df_filtered)} / 전체: {len(df_e)}건)")
         
+        # [DB에 없는 임시 컬럼 제거]
+        if 'month' in df_filtered.columns:
+            df_filtered = df_filtered.drop(columns=['month'])
+        
         # [컬럼 재정렬]
         target_order = ['date', 'title', 'host', 'event_id', 'album_url', 'description']
         final_order = [c for c in target_order if c in df_filtered.columns] + [c for c in df_filtered.columns if c not in target_order]
 
         column_config = {
             "date": st.column_config.DateColumn("행사일", format="YYYY-MM-DD", width="medium"),
-            "title": st.column_config.TextColumn("일정명", width="large"),
-            "event_id": st.column_config.TextColumn("ID", disabled=True),
+            "title": st.column_config.TextColumn("공지명", width="large"),
+            "event_id": st.column_config.TextColumn("ID", help="URL 입력 시 자동 추출되지만, 직접 입력도 가능합니다."),
         }
         
         updated = st.data_editor(
@@ -69,8 +73,32 @@ class EventsPage:
                 cols = ", ".join([f'"{c}"' for c in updated.columns])
                 placeholders = ", ".join(["?"] * len(updated.columns))
                 sql = f"INSERT OR REPLACE INTO events ({cols}) VALUES ({placeholders})"
+                
+                import re
                 for _, row in updated.iterrows():
-                    self.db.execute(sql, tuple(row))
+                    # event_id 추출 및 보정
+                    event_id = str(row['event_id']).strip() if not pd.isna(row['event_id']) else ""
+                    album_url = str(row['album_url']).strip() if not pd.isna(row['album_url']) else ""
+                    
+                    if event_id == "" and album_url != "":
+                        # URL의 마지막 / 뒤의 숫자들 추출
+                        match = re.search(r'/(\d+)/?$', album_url)
+                        if not match:
+                            match = re.search(r'(\d+)$', album_url)
+                        
+                        if match:
+                            event_id = match.group(1)
+                    
+                    # 수동으로 튜플 생성하여 명시적으로 컬럼 순서 맞춤
+                    # updated.columns 순서대로 데이터 구성
+                    row_data = []
+                    for col in updated.columns:
+                        if col == 'event_id':
+                            row_data.append(event_id)
+                        else:
+                            row_data.append(row[col])
+                            
+                    self.db.execute(sql, tuple(row_data))
                     
                 import time
                 time.sleep(0.5)

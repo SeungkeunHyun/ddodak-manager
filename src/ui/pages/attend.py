@@ -31,7 +31,7 @@ class AttendancePage:
         # 기존 참석자 로드
         existing = self.db.query("SELECT user_no FROM attendees WHERE event_id=?", (str(sel_ev_id),))['user_no'].tolist()
         
-        # 표시 포맷 (기수/이름/지역)
+        # 표시 포맷 (생년/이름/지역)
         mb_list['display'] = mb_list.apply(lambda r: f"{r['birth_year']}/{r['name']}/{r['area']}", axis=1)
         
         # 공지자 표시 로직
