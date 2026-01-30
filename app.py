@@ -28,7 +28,7 @@ def main():
 
     with st.sidebar:
         st.title("⛰️ 또닥또닥 산악회")
-        st.caption("🚀 App Version: v4.25 (KPI Fix)")
+        st.caption("🚀 App Version: v4.28 (exmember filter)")
 
     # 2. Authentication
     

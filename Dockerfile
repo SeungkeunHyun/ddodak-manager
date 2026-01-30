@@ -2,7 +2,7 @@
 FROM python:3.11-slim
 
 # Force Cache Invalidation
-ENV BUILD_ID=v4.27
+ENV BUILD_ID=v4.28
 # RUN apt-get update && apt-get install -y \
 #     build-essential \
 #     && rm -rf /var/lib/apt/lists/*

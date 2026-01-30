@@ -20,10 +20,12 @@ class ReportPage:
         with col2: target_month = st.text_input("📅 대상 월 (YYYY-MM)", value=datetime.now(Config.KST).strftime('%Y-%m'))
         
         if st.button("📝 보고서 생성", type="primary", use_container_width=True):
-            # 산행 내역 쿼리
-            df_ev = self.db.query(f"SELECT e.date, e.title, e.album_url, m.birth_year, m.name FROM events e JOIN attendees a ON e.event_id=a.event_id JOIN members m ON a.user_no=m.user_no WHERE strftime('%Y-%m', e.date)='{target_month}' ORDER BY e.date, m.birth_year, m.name")
+            # 산행 내역 쿼리 (exmember 제외)
+            df_ev = self.db.query(f"SELECT e.date, e.title, e.album_url, m.birth_year, m.name FROM events e JOIN attendees a ON e.event_id=a.event_id JOIN members m ON a.user_no=m.user_no WHERE strftime('%Y-%m', e.date)='{target_month}' AND m.role != 'exmember' ORDER BY e.date, m.birth_year, m.name")
             # 전체 활동 통계 쿼리
-            df_rep = self.db.query("SELECT * FROM v_member_attendance_summary ORDER BY MemberID ASC")
+            df_rep_raw = self.db.query("SELECT * FROM v_member_attendance_summary ORDER BY MemberID ASC")
+            # exmember 제외
+            df_rep = df_rep_raw[df_rep_raw['회원상태'] != 'exmember'].copy()
             
             # 결측치 처리
             df_rep['획득점수'] = df_rep['획득점수'].fillna(0).astype(int)
@@ -51,12 +53,13 @@ class ReportPage:
             
             report += f"🏆 **[이달의 시상 현황]**{sp}\n" + (f"{sp}\n".join(winners) if winners else "해당사항 없음") + f"{sp}\n\n"
             
-            # 2.5 신입 첫 산행 축하
+            # 2.5 신입 첫 산행 축하 (exmember 제외)
             df_first = self.db.query(f"""
                 SELECT m.name, MIN(e.date) as first_date 
                 FROM attendees a 
                 JOIN events e ON a.event_id = e.event_id 
                 JOIN members m ON a.user_no = m.user_no 
+                WHERE m.role != 'exmember'
                 GROUP BY m.user_no, m.name 
                 HAVING strftime('%Y-%m', first_date) = '{target_month}'
             """)
@@ -75,7 +78,7 @@ class ReportPage:
             report += f"🔢 **[전체 회원 누적 점수 현황]**{sp}\n"
             report += f"| 회원명 | 이번달 점수 | 누적 점수 | 상태 |{sp}\n"
             report += f"| :--- | ---: | ---: | :---: |{sp}\n"
-            for _, r in df_rep[df_rep['회원상태'] != 'exmember'].iterrows():
+            for _, r in df_rep.iterrows():
                 report += f"| {r['MemberID']} | {r['획득점수']}점 | {r['현재포인트']}점 | {r['회원상태']} |{sp}\n"
             
             report += f"\n────────────────{sp}\n건강하게 다음 산행에서 뵙겠습니다! ⛰️"
