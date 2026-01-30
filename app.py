@@ -28,7 +28,7 @@ def main():
 
     with st.sidebar:
         st.title("⛰️ 또닥또닥 산악회")
-        st.caption("🚀 App Version: v4.29 (Muted Theme & BG Fix)")
+        st.caption("🚀 App Version: v4.34 (High-Contrast Modebar)")
 
     # 2. Authentication
     

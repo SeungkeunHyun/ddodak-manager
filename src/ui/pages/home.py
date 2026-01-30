@@ -17,6 +17,23 @@ class HomePage:
         self.db = db
         self.ai = ai
 
+    def _add_clip_button(self, key, title, content):
+        """리포트 생성을 위한 클립보드 버튼"""
+        if st.button("📋 리포트에 담기", key=key, help="이 내용을 '보고서 생성' 페이지로 가져갑니다."):
+            if 'report_clips' not in st.session_state:
+                st.session_state['report_clips'] = []
+            
+            # 중복 체크
+            if not any(c['key'] == key for c in st.session_state['report_clips']):
+                st.session_state['report_clips'].append({
+                    'key': key,
+                    'title': title,
+                    'content': content
+                })
+                st.toast(f"✅ '{title}' 내용이 담겼습니다! (보고서 페이지에서 확인)")
+            else:
+                st.toast(f"⚠️ 이미 담긴 내용입니다: {title}")
+
     def render(self):
         Layout.render_manual("홈")
         
@@ -160,6 +177,18 @@ class HomePage:
             else:
                 st.info("예정된 산행이 없습니다.")
             st.markdown("</div>", unsafe_allow_html=True)
+            
+            # [Clip Button for Upcoming Events]
+            if not upcoming.empty:
+                clip_text = f"📅 [다가오는 산행]\n"
+                for _, row in upcoming.iterrows():
+                    d_day = (pd.to_datetime(row['date']) - pd.to_datetime(today)).days
+                    dd_str = f"D-{d_day}" if d_day > 0 else "D-Day"
+                    clip_text += f"- {row['title']} ({pd.to_datetime(row['date']).strftime('%m/%d')}, {dd_str}) / 담당: {row['host_name'] or row['host']}\n"
+                
+                st.markdown("<div style='margin-top: 5px; text-align: right;'>", unsafe_allow_html=True)
+                self._add_clip_button("clip_upcoming", "다가오는 산행", clip_text)
+                st.markdown("</div>", unsafe_allow_html=True)
 
         with c4:
             st.markdown(f"""<div style="background-color: rgba(0,0,0,0.5); padding: 20px; border-radius: 15px;">""", unsafe_allow_html=True)
@@ -190,37 +219,41 @@ class HomePage:
             </div>
             """, unsafe_allow_html=True)
             
-            if not df_dist.empty:
-                # 데이터 전처리 로직은 동일
-                df_dist['gender_norm'] = df_dist['gender'].astype(str).str.upper().str.strip()
-                gender_map = {'M': 'M', 'MALE': 'M', 'MAN': 'M', '남': 'M', '남성': 'M', 'F': 'F', 'FEMALE': 'F', 'WOMAN': 'F', 'W': 'F', '여': 'F', '여성': 'F'}
-                df_dist['gender_final'] = df_dist['gender_norm'].map(gender_map).fillna('U')
-                
-                age_gender = df_dist.groupby(['birth_year', 'gender_final']).size().unstack(fill_value=0)
-                if 'M' not in age_gender.columns: age_gender['M'] = 0
-                if 'F' not in age_gender.columns: age_gender['F'] = 0
-                age_gender['total'] = age_gender.sum(axis=1)
-                age_gender = age_gender.sort_index()
-
-                max_count = age_gender['total'].max()
-                
-                html_balls = '<div style="background-color: rgba(0,0,0,0.5); padding: 15px; border-radius: 10px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center;">'
-                for year, row in age_gender.iterrows():
-                    year = int(year)
-                    count = int(row['total'])
-                    m_count = int(row['M'])
-                    f_count = int(row['F'])
+                if not df_dist.empty:
+                    df_dist['gender_norm'] = df_dist['gender'].astype(str).str.upper().str.strip()
+                    gender_map = {'M': 'M', 'MALE': 'M', 'MAN': 'M', '남': 'M', '남성': 'M', 'F': 'F', 'FEMALE': 'F', 'WOMAN': 'F', 'W': 'F', '여': 'F', '여성': 'F'}
+                    df_dist['gender_final'] = df_dist['gender_norm'].map(gender_map).fillna('U')
                     
-                    m_pct = (m_count / count * 100) if count > 0 else 0
-                    bg_style = f"background: linear-gradient(135deg, #3b82f6 {m_pct}%, #ec4899 {m_pct}%);"
+                    age_gender = df_dist.groupby(['birth_year', 'gender_final']).size().unstack(fill_value=0)
+                    if 'M' not in age_gender.columns: age_gender['M'] = 0
+                    if 'F' not in age_gender.columns: age_gender['F'] = 0
+                    age_gender['total'] = age_gender.sum(axis=1)
+                    age_gender = age_gender.reset_index()
                     
-                    size = 50 + (count / max_count) * 50 if max_count > 0 else 50
-                    font_size = 14 + (count / max_count) * 6
-                    
-                    # Hover effect added via CSS class (already in Styles)
-                    html_balls += f"""<div style="width: {size}px; height: {size}px; border-radius: 50%; {bg_style} color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s; border: 2px solid rgba(255,255,255,0.2);" title="{year}년생: {count}명 (남:{m_count}/여:{f_count})"><span style="font-weight: bold; font-size: {font_size}px; line-height: 1; text-shadow: 1px 1px 2px black;">{year}년</span><span style="font-size: {font_size*0.7}px; opacity: 0.9; text-shadow: 1px 1px 2px black;">{count}명</span></div>"""
-                html_balls += '</div>'
-                st.markdown(html_balls, unsafe_allow_html=True)
+                    # [Plotly Refactor] Birth Year Bubbles
+                    fig_birth = px.scatter(
+                        age_gender, x="birth_year", y="total", size="total", color="total",
+                        hover_name="birth_year", text="birth_year",
+                        size_max=60,
+                        color_continuous_scale="Viridis", # Neon-like
+                        title="📅 생년별 인원 분포"
+                    )
+                    fig_birth.update_traces(textposition='top center')
+                    fig_birth.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='white'),
+                        xaxis=dict(showgrid=False, title=""),
+                        yaxis=dict(showgrid=False, title="", showticklabels=False),
+                        showlegend=False,
+                        height=400,
+                        # [Explicit ModeBar Styling]
+                        modebar=dict(bgcolor='rgba(255,255,255,0.8)', color='black', activecolor='#ec4899')
+                    )
+                    st.plotly_chart(fig_birth, use_container_width=True, config={
+                        'displayModeBar': True, # Always avail on hover
+                        'displaylogo': False,
+                        'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
+                    })
 
         with c4:
             st.subheader("🚻 성별 분포 (Gender)")
@@ -232,70 +265,50 @@ class HomePage:
                 f_pct = (f_count / total * 100) if total > 0 else 0
                 u_pct = (u_count / total * 100) if total > 0 else 0
                 
-                # ... (Gender HTML - Same as existing)
-                # Use sqrt for area proportionality to make size differences less extreme but accurate visually
-                import math
-                max_val = max(m_count, f_count) if max(m_count, f_count) > 0 else 1
-                base_size = 60
-                scale_factor = 60
+                # [Plotly Refactor] Gender Pie Chart
+                df_g = pd.DataFrame([
+                    {'gender': '남성', 'count': m_count, 'color': '#3b82f6'},
+                    {'gender': '여성', 'count': f_count, 'color': '#ec4899'},
+                    {'gender': '미상', 'count': u_count, 'color': '#9ca3af'}
+                ])
+                df_g = df_g[df_g['count'] > 0]
                 
-                m_size = int(base_size + (math.sqrt(m_count) / math.sqrt(max_val)) * scale_factor) if m_count > 0 else 40
-                f_size = int(base_size + (math.sqrt(f_count) / math.sqrt(max_val)) * scale_factor) if f_count > 0 else 40
-                u_size = 40  # Unknown is typically small
-
-                html_gender = f"""<div style="background-color: rgba(0,0,0,0.5); border-radius: 10px; height: 100%; padding: 20px; position: relative; min-height: 350px; display: flex; flex-direction: column; align-items: center;">
-    <!-- Title -->
-    <div style="width: 100%; text-align: center; margin-bottom: 30px; color: #eee; font-weight: bold; font-size: 18px;">⚖️ 성별 분포 (Balance Scale)</div>
-    <!-- Scale Container -->
-    <div style="position: relative; width: 100%; height: 220px; display: flex; justify-content: center;">
-        <!-- Fulcrum (Triangle Base) -->
-        <div style="position: absolute; top: 40px; width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-bottom: 30px solid #555; z-index: 1;"></div>
-        <!-- Unknown (Center Circle) -->
-        <div style="position: absolute; top: 30px; z-index: 2; width: {u_size}px; height: {u_size}px; background-color: #9ca3af; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.5); border: 2px solid #555;">
-             <div style="text-align: center; line-height: 1;">
-                <div style="font-size: 12px; color: #fff; font-weight: bold;">❓</div>
-                <div style="font-size: 10px; color: #eee;">{u_count}</div>
-             </div>
-        </div>
-        <!-- Beam (Crossbar) -->
-        <div style="position: absolute; top: 40px; width: 80%; height: 6px; background: linear-gradient(90deg, #444, #666, #444); border-radius: 4px; z-index: 0;"></div>
-        <!-- Left Pan (Male) -->
-        <div style="position: absolute; left: 10%; top: 40px; display: flex; flex-direction: column; align-items: center;">
-            <!-- String -->
-            <div style="width: 2px; height: 40px; background-color: #888;"></div>
-            <!-- Circle -->
-            <div style="width: {m_size}px; height: {m_size}px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #60a5fa, #2563eb); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.4); border: 2px solid rgba(255,255,255,0.1); transition: transform 0.3s;">
-                <div style="text-align: center; color: white;">
-                    <div style="font-size: 20px;">♂️</div>
-                    <div style="font-weight: bold; font-size: 16px;">{m_count}</div>
-                    <div style="font-size: 11px; opacity: 0.8;">{m_pct:.1f}%</div>
-                </div>
-            </div>
-        </div>
-        <!-- Right Pan (Female) -->
-        <div style="position: absolute; right: 10%; top: 40px; display: flex; flex-direction: column; align-items: center;">
-            <!-- String -->
-            <div style="width: 2px; height: 40px; background-color: #888;"></div>
-            <!-- Circle -->
-            <div style="width: {f_size}px; height: {f_size}px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #f472b6, #db2777); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(219, 39, 119, 0.4); border: 2px solid rgba(255,255,255,0.1); transition: transform 0.3s;">
-                <div style="text-align: center; color: white;">
-                    <div style="font-size: 20px;">♀️</div>
-                    <div style="font-weight: bold; font-size: 16px;">{f_count}</div>
-                    <div style="font-size: 11px; opacity: 0.8;">{f_pct:.1f}%</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- Legend -->
-    <div style="margin-top: auto; width: 100%; display: flex; justify-content: center; gap: 15px; font-size: 12px; color: #ccc; background-color: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px;">
-        <div style="display: flex; align-items: center;"><span style="width: 10px; height: 10px; background-color: #3b82f6; border-radius: 50%; margin-right: 5px;"></span>남성 (Male)</div>
-        <div style="display: flex; align-items: center;"><span style="width: 10px; height: 10px; background-color: #ec4899; border-radius: 50%; margin-right: 5px;"></span>여성 (Female)</div>
-        <div style="display: flex; align-items: center;"><span style="width: 10px; height: 10px; background-color: #9ca3af; border-radius: 50%; margin-right: 5px;"></span>미상 (Unknown)</div>
-    </div>
-    <div style="margin-top: 5px; font-size: 13px; color: #bbb;">* 동그라미 크기는 인원수에 비례합니다.</div>
-</div>"""
-                st.markdown(html_gender, unsafe_allow_html=True)
+                fig_gender = px.pie(
+                    df_g, values='count', names='gender', 
+                    color='gender', 
+                    color_discrete_map={'남성':'#3b82f6', '여성':'#ec4899', '미상':'#9ca3af'},
+                    hole=0.4,
+                    title='🚻 성별 분포'
+                )
+                fig_gender.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='white'),
+                    margin=dict(t=50, b=20, l=20, r=20),
+                    showlegend=True,
+                    height=350,
+                    modebar=dict(bgcolor='rgba(255,255,255,0.8)', color='black', activecolor='#ec4899')
+                )
+                st.plotly_chart(fig_gender, use_container_width=True, config={
+                    'displayModeBar': True,
+                    'displaylogo': False,
+                    'modeBarButtonsToRemove': ['hoverClosestPie']
+                })
         
+        # [Clip Button for Demographics]
+        if not df_dist.empty:
+            clip_demo = f"👥 [회원 구성 통계]\n"
+            # Gender summary
+            clip_demo += f"- 성별 분포: 남성 {m_count}명({m_pct:.1f}%), 여성 {f_count}명({f_pct:.1f}%)\n"
+            # Top 3 birth years
+            if 'total' in age_gender.columns:
+                top_births = age_gender.sort_values(by='total', ascending=False).head(3)
+                birth_summary = ", ".join([f"{idx}년({int(row['total'])}명)" for idx, row in top_births.iterrows()])
+                clip_demo += f"- 최다 인원 생년: {birth_summary}"
+            
+            st.markdown("<div style='margin-top: 10px; text-align: right;'>", unsafe_allow_html=True)
+            self._add_clip_button("clip_demographics", "회원 구성 통계", clip_demo)
+            st.markdown("</div>", unsafe_allow_html=True)
+
         st.divider()
         
         # Map logic (Truncated for brevity, assuming standard map logic)
@@ -348,7 +361,8 @@ class HomePage:
             yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, title=""),
             margin={"r":20,"t":70,"l":20,"b":20},
             title_font=dict(size=20, color="#fff", family="Inter, sans-serif"),
-            font=dict(color="#fff", weight='bold') # 텍스트 가독성 강화
+            font=dict(color="#fff", weight='bold'),
+            modebar=dict(bgcolor='rgba(255,255,255,0.8)', color='black', activecolor='#ec4899')
         )
         fig_map.update_traces(
             textposition='top center', 
@@ -359,7 +373,11 @@ class HomePage:
             textfont=dict(size=14, color="#fff")
         )
         
-        st.plotly_chart(fig_map, use_container_width=True)
+        st.plotly_chart(fig_map, use_container_width=True, config={
+            'displayModeBar': True, 
+            'displaylogo': False,
+            'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
+        })
         st.markdown("""<div style="text-align: right; font-size: 13px; color: #bbb; margin-top: -10px;">* 위치는 실제 지도 좌표를 바탕으로 단순화된 모식도입니다.</div>""", unsafe_allow_html=True)
 
     def _render_event_analysis(self):
@@ -407,26 +425,31 @@ class HomePage:
                     low_m = df_stats['low_month'].iloc[0] or "-"
                     curr_v = df_stats['current_cnt'].iloc[0] or 0
                     
-                    # 렌더링 깨짐 방지를 위해 들여쓰기 제거 (v3.9: 고대비 스타일)
-                    trend_html = "<div style='background-color: rgba(0,0,0,0.6); border-radius: 15px; padding: 25px; min-height: 240px; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: center;'>"
-                    trend_html += "<div style='font-size: 16px; color: #fff; margin-bottom: 25px; text-align: center; font-weight: 800; letter-spacing: 1px;'>📅 월별 활동 동향 (최근 5개월)</div>"
-                    trend_html += "<div style='display: flex; justify-content: space-around; align-items: center; gap: 5px;'>"
+                    curr_v = df_stats['current_cnt'].iloc[0] or 0
                     
-                    for _, row in df_trend.iterrows():
-                        base_size = 52
-                        scale = (row['count'] / max_count) * 52 if max_count > 0 else 0
-                        size = base_size + scale
-                        opacity = 0.6 + (row['count'] / max_count) * 0.4 if max_count > 0 else 0.6
-                        
-                        trend_html += f"""
-<div style="display: flex; flex-direction: column; align-items: center; width: 80px;">
-<span style="font-size: 14px; color: #fff; font-weight: 900; margin-bottom: 15px; background: rgba(16, 185, 129, 0.3); border: 1px solid rgba(16, 185, 129, 0.5); padding: 3px 10px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">{row['month']}</span>
-<div style="width: {size}px; height: {size}px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #34d399, #10b981); border: 3px solid #fff; box-shadow: 0 0 {size/2}px rgba(16, 185, 129, 0.6); display: flex; align-items: center; justify-content: center; transition: transform 0.3s; transform: scale(1);">
-<span style="font-size: {16 + size/8}px; font-weight: 900; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">{row['count']}</span>
-</div>
-</div>"""
-                    trend_html += "</div></div>"
-                    st.markdown(trend_html, unsafe_allow_html=True)
+                    # [Plotly Refactor] Trend Bubbles
+                    fig_trend = px.scatter(
+                        df_trend, x="month", y="count", size="count", color="count",
+                        text="count",
+                        size_max=50,
+                        color_continuous_scale="Emerald", # Neon Greenish
+                        title="📅 월별 활동 동향"
+                    )
+                    fig_trend.update_traces(textposition='top center', marker=dict(line=dict(width=2, color='white')))
+                    fig_trend.update_layout(
+                         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                         font=dict(color='white'),
+                         xaxis=dict(showgrid=False, title=""),
+                         yaxis=dict(showgrid=False, title="", showticklabels=False), # Hide Y axis
+                         showlegend=False,
+                         height=300,
+                         modebar=dict(bgcolor='rgba(255,255,255,0.8)', color='black', activecolor='#ec4899')
+                    )
+                    st.plotly_chart(fig_trend, use_container_width=True, config={
+                        'displayModeBar': True, 
+                        'displaylogo': False,
+                        'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
+                    })
             except Exception as e:
                 st.error(f"Trend Load Error: {e}")
 
@@ -462,11 +485,25 @@ class HomePage:
             except Exception as e:
                 st.error(f"Stats Load Error: {e}")
 
+        # [Clip Button for Analysis]
+        if not df_stats.empty:
+            clip_analysis = f"📊 [최근 산행 분석]\n"
+            clip_analysis += f"- 연간 평균 산행: {avg_v:.1f}회\n"
+            clip_analysis += f"- 활동 최다월: {peak_m} ({int(peak_v)}회)\n"
+            clip_analysis += f"- 이번 달 활동: {int(curr_v)}회"
+            
+            st.markdown("<div style='margin-top: 10px; text-align: right;'>", unsafe_allow_html=True)
+            self._add_clip_button("clip_analysis", "최근 산행 분석", clip_analysis)
+            st.markdown("</div>", unsafe_allow_html=True)
+
 
     def _render_hall_of_fame(self, df_summary, active_members):
         now = datetime.now(Config.KST)
         cur_month_str = now.strftime('%Y-%m')
         st.subheader(f"🏆 {now.month}월의 명예의 전당")
+        
+        # Summary text builer
+        clip_hall_lines = [f"🏆 [{now.month}월의 명예의 전당]"]
         
         c_host, c_attend, c_event = st.columns(3)
         
@@ -512,6 +549,10 @@ class HomePage:
                 if not df_host.empty:
                     for idx, row in df_host.iterrows():
                         st.markdown(get_rank_html(idx, row['name'], f"{row['cnt']}회", row['profile_image_url']), unsafe_allow_html=True)
+                    
+                    # Add to clip text
+                    names = [f"{r['name']}({r['cnt']}회)" for _, r in df_host.iterrows()]
+                    clip_hall_lines.append(f"- 📣 공지왕: {', '.join(names)}")
                 else:
                     st.caption("데이터 없음")
             except Exception as e:
@@ -536,6 +577,10 @@ class HomePage:
                 if not df_attend.empty:
                     for idx, row in df_attend.iterrows():
                         st.markdown(get_rank_html(idx, row['name'], f"{int(row['score'])}점", row['profile_image_url']), unsafe_allow_html=True)
+                    
+                    # Add to clip text
+                    names = [f"{r['name']}({int(r['score'])}점)" for _, r in df_attend.iterrows()]
+                    clip_hall_lines.append(f"- 🏃 참석왕: {', '.join(names)}")
                 else:
                     st.caption("데이터 없음")
             except Exception as e:
@@ -557,11 +602,20 @@ class HomePage:
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
+                    
+                    # Add to clip text
+                    titles = [f"{r['title']}({r['cnt']}명)" for _, r in df_pop.iterrows()]
+                    clip_hall_lines.append(f"- 🔥 인기산행: {', '.join(titles)}")
                 else:
                     st.caption("데이터 없음")
             except Exception as e:
                 st.error(f"Error: {e}")
         
+        # [Clip Button for Hall of Fame]
+        st.markdown("<div style='margin-top: 10px; text-align: right;'>", unsafe_allow_html=True)
+        self._add_clip_button(f"clip_hof_{cur_month_str}", f"{now.month}월 명예의 전당", "\n".join(clip_hall_lines))
+        st.markdown("</div>", unsafe_allow_html=True)
+
         st.divider()
         # [생년별 포인트 -> 이달의 생년별 참가 현황]
         try:
@@ -624,10 +678,15 @@ class HomePage:
                     showlegend=False,
                     coloraxis_showscale=False,
                     height=450,
-                    margin=dict(t=80, b=40, l=40, r=40)
+                    margin=dict(t=80, b=40, l=40, r=40),
+                    modebar=dict(bgcolor='rgba(255,255,255,0.8)', color='black', activecolor='#ec4899')
                 )
                 
-                st.plotly_chart(fig_attend, use_container_width=True)
+                st.plotly_chart(fig_attend, use_container_width=True, config={
+                    'displayModeBar': True, 
+                    'displaylogo': False,
+                    'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
+                })
                 
                 # 총 참가 인원 요약
                 total_m_attend = int(df_final['cnt'].sum())

@@ -19,6 +19,16 @@ class ReportPage:
         with col1: rules = st.text_input("🔗 회칙 링크", value=Config.RULES_URL)
         with col2: target_month = st.text_input("📅 대상 월 (YYYY-MM)", value=datetime.now(Config.KST).strftime('%Y-%m'))
         
+        # [Dashboard Clips Selection]
+        clips_to_include = []
+        if 'report_clips' in st.session_state and st.session_state['report_clips']:
+            with st.expander("📋 대시보드 스크랩 (선택하여 추가)", expanded=True):
+                st.caption("대시보드에서 '리포트에 담기' 한 내용을 선택하세요.")
+                c_clips = st.columns(2)
+                for i, clip in enumerate(st.session_state['report_clips']):
+                    if c_clips[i % 2].checkbox(f"📌 {clip['title']}", value=True, key=f"use_clip_{i}"):
+                        clips_to_include.append(clip['content'])
+        
         if st.button("📝 보고서 생성", type="primary", use_container_width=True):
             # 산행 내역 쿼리 (exmember 제외)
             df_ev = self.db.query(f"SELECT e.date, e.title, e.album_url, m.birth_year, m.name FROM events e JOIN attendees a ON e.event_id=a.event_id JOIN members m ON a.user_no=m.user_no WHERE strftime('%Y-%m', e.date)='{target_month}' AND m.role != 'exmember' ORDER BY e.date, m.birth_year, m.name")
@@ -34,6 +44,12 @@ class ReportPage:
             sp = "  " # 마크다운 줄바꿈
             report = f"🔗 **또닥또닥 회칙 안내**{sp}\n{rules}{sp}\n\n"
             report += f"⛰️ **{target_month} 활동 요약 보고서**{sp}\n────────────────{sp}\n\n"
+            
+            # [Added] Dashboard Clips
+            if clips_to_include:
+                for c in clips_to_include:
+                    report += f"{c}{sp}\n"
+                report += f"\n"
             
             # 1. 산행 기록
             report += f"📅 **[이달의 산행 기록]**{sp}\n"
