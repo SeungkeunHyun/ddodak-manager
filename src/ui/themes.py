@@ -41,16 +41,16 @@ def get_random_korean_mountain():
 NatureTheme = Theme(
     name="Nature",
     colors=ThemeColors(
-        primary="#059669",       # Emerald 600 (Darker, less glaring)
-        primary_gradient="linear-gradient(135deg, #047857 0%, #059669 100%)",
-        secondary="#6ee7b7",     # Emerald 300 (Softer secondary)
-        accent="#d97706",        # Amber 600 (Darker Warm Accent)
-        background="#064e3b",    # Emerald 900
-        card_bg="rgba(6, 78, 59, 0.5)", 
-        text_primary="#ecfdf5",  # Emerald 50
-        text_secondary="#a7f3d0",# Emerald 200
-        border="rgba(16, 185, 129, 0.3)", 
-        chart_colors=["#10b981", "#34d399", "#6ee7b7", "#059669", "#047857"]
+        primary="#4a7c59",       # Muted Sage Green
+        primary_gradient="linear-gradient(135deg, #3d664a 0%, #4a7c59 100%)",
+        secondary="#8fb996",     # Soft Muted Sage
+        accent="#b68d40",        # Muted Teracotta/Gold
+        background="#1a2f23",    # Deep Muted Forest
+        card_bg="rgba(26, 47, 35, 0.7)", 
+        text_primary="#f8f9fa",  # Off-White
+        text_secondary="#ced4da", # Light Gray
+        border="rgba(255, 255, 255, 0.1)", 
+        chart_colors=["#52796f", "#84a98c", "#354f52", "#2f3e46"]
     ),
     font_header="Noto Sans KR",
     font_body="Noto Sans KR",

@@ -23,9 +23,9 @@ class Styles:
 
         # Select a random image from the local AI assets
         if BG_IMAGES:
-            bg_b64 = random.choice(BG_IMAGES)
+            local_bg_b64 = random.choice(BG_IMAGES)
         else:
-            bg_b64 = ""
+            local_bg_b64 = ""
             
         theme = ThemeManager.current
         c = theme.colors
@@ -65,8 +65,10 @@ class Styles:
 
         img_b64 = get_img_as_base64(bg_url)
         
-        # Construct CSS - If B64 fails, fallback to URL, then Color
-        if img_b64:
+        # Consolidate Background: Prefer local asset, then fetched B64, then URL
+        if local_bg_b64:
+            bg_css_val = f"url('data:image/png;base64,{local_bg_b64}')"
+        elif img_b64:
             bg_css_val = f"url('data:image/jpg;base64,{img_b64}')"
         else:
             bg_css_val = f"url('{bg_url}')"
@@ -213,7 +215,7 @@ class Styles:
             }}
             
             [data-testid="stAppViewContainer"] {{
-                background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('data:image/png;base64,{bg_b64}') !important;
+                background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), {bg_css_val} !important;
                 background-size: cover !important;
                 background-position: center center !important;
                 background-attachment: fixed !important;
