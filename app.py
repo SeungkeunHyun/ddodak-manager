@@ -2,9 +2,7 @@
 import streamlit as st
 import streamlit_authenticator as stauth
 from src.config import Config
-from src.services.db_service import DBService
-from src.services.ai_service import AIService
-from src.services.band_auth_service import BandAuthService
+from src.services import DBService, AIService, BandAuthService, AnalysisService
 from src.ui.styles import Styles
 from src.ui.layout import Layout
 from src.ui.pages.home import HomePage
@@ -28,7 +26,7 @@ def main():
 
     with st.sidebar:
         st.title("⛰️ 또닥또닥 산악회")
-        st.caption("🚀 App Version: v4.34 (High-Contrast Modebar)")
+        st.caption("🚀 App Version: v4.35 (Refactored w/ Caching)")
 
     # 2. Authentication
     
@@ -81,24 +79,25 @@ def main():
             
     if st.session_state["authentication_status"]:
         # 3. Initialize Services
-        db = DBService()
-        ai = AIService()
+        db_service = DBService()
+        ai_service = AIService()
+        analysis_service = AnalysisService(db_service)
 
         # 4. Apply Global Styles
         # Styles.apply_custom_css() # Moved to global scope
 
         # 5. Render Layout & Navigation
-        choice = Layout.render_sidebar(ai.model_name)
+        choice = Layout.render_sidebar(ai_service.model_name)
 
         # 6. Route to Page
         if choice == "🏠 홈":
-            HomePage(db, ai).render()
+            HomePage(db_service, ai_service, analysis_service).render()
         elif choice == "👥 회원 관리":
-            MembersPage(db).render()
+            MembersPage(db_service).render()
         elif choice == "📅 공지 관리":
-            EventsPage(db).render()
+            EventsPage(db_service).render()
         elif choice == "🏃 참가 체크":
-            AttendancePage(db).render()
+            AttendancePage(db_service).render()
         elif choice == "📊 보고서 생성":
             ReportPage(db).render()
         

@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import requests
 import plotly.express as px
 from datetime import datetime, timedelta
 from src.config import Config
@@ -13,9 +12,10 @@ from src.ui.themes import ThemeManager
 # =========================================================
 
 class HomePage:
-    def __init__(self, db, ai):
+    def __init__(self, db, ai, analysis):
         self.db = db
         self.ai = ai
+        self.analysis = analysis
 
     def _add_clip_button(self, key, title, content):
         """리포트 생성을 위한 클립보드 버튼"""
@@ -58,8 +58,7 @@ class HomePage:
             st.divider()
             st.subheader("🤖 AI 비서")
             if st.button("✨ 월간 브리핑 생성", use_container_width=True):
-                today = datetime.now().strftime("%Y-%m-%d")
-                upcoming = self.db.query(f"SELECT * FROM events WHERE date >= '{today}' ORDER BY date ASC LIMIT 3")
+                upcoming = self.analysis.get_upcoming_events()
                 if upcoming.empty:
                     st.sidebar.warning("예정된 산행 데이터가 없습니다.")
                 else:
@@ -94,16 +93,7 @@ class HomePage:
 
     def _render_overview(self, df_summary):
         # 1. KPI Cards
-        total_members = self.db.query("SELECT COUNT(*) FROM members WHERE role<>'exmember'").iloc[0, 0]
-        
-        df_points = self.db.query("SELECT user_no, point FROM members WHERE role<>'exmember'")
-        total_base = df_points['point'].sum() if not df_points.empty else 0
-        event_score = self.db.query("SELECT SUM(e.score) FROM events e JOIN attendees a ON e.event_id = a.event_id").iloc[0,0]
-        if pd.isna(event_score): event_score = 0
-        total_activity_score = total_base + event_score
-        
-        three_months_ago = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
-        active_count = self.db.query(f"SELECT COUNT(DISTINCT user_no) FROM attendees a JOIN events e ON a.event_id = e.event_id WHERE e.date >= '{three_months_ago}'").iloc[0,0]
+        total_members, active_count, total_activity_score = self.analysis.get_overview_kpis()
 
         c = ThemeManager.current.colors
         
@@ -125,16 +115,7 @@ class HomePage:
             st.markdown(f"""<div style="background-color: rgba(0,0,0,0.5); padding: 20px; border-radius: 15px;">""", unsafe_allow_html=True)
             st.subheader("📅 다가오는 산행")
             today = datetime.now().strftime("%Y-%m-%d")
-            # 주최자 정보를 가져오기 위해 members 테이블과 JOIN
-            sql = f"""
-                SELECT e.*, m.name as host_name, m.birth_year, m.area, m.profile_image_url 
-                FROM events e 
-                LEFT JOIN members m ON e.host = m.user_no 
-                WHERE e.date >= '{today}' 
-                ORDER BY e.date ASC 
-                LIMIT 3
-            """
-            upcoming = self.db.query(sql)
+            upcoming = self.analysis.get_upcoming_events()
             
             if not upcoming.empty:
                 for _, row in upcoming.iterrows():
@@ -202,7 +183,7 @@ class HomePage:
 
     def _render_demographics(self, df_summary):
         c3, c4 = st.columns(2)
-        df_dist = self.db.query("SELECT birth_year, gender FROM members WHERE role<>'exmember'")
+        df_dist = self.analysis.get_demographics()
         
         with c3:
             st.markdown("### 📅 연도별 인원 (Birth Year)")
@@ -384,37 +365,8 @@ class HomePage:
         c1, c2 = st.columns([1, 1.2])
         with c1:
             st.subheader("📊 최근 공지 분석")
-            # 1. 월별 추이 (최근 5개월)
-            sql_trend = """
-                SELECT strftime('%Y-%m', date) as month, count(*) as count 
-                FROM events 
-                WHERE date >= CAST(date_trunc('month', today() - interval 4 month) AS DATE)
-                  AND date <= today()
-                GROUP BY month 
-                ORDER BY month
-            """
-            
-            # 2. 연간 통계 (최근 12개월)
-            sql_stats = """
-                WITH monthly_data AS (
-                    SELECT strftime('%Y-%m', date) as month, count(*) as cnt 
-                    FROM events 
-                    WHERE date >= CAST(date_trunc('month', today() - interval 11 month) AS DATE)
-                      AND date <= today()
-                    GROUP BY month
-                )
-                SELECT 
-                    (SELECT AVG(cnt) FROM monthly_data) as avg_cnt,
-                    (SELECT month FROM monthly_data ORDER BY cnt DESC, month DESC LIMIT 1) as peak_month,
-                    (SELECT cnt FROM monthly_data ORDER BY cnt DESC, month DESC LIMIT 1) as peak_cnt,
-                    (SELECT month FROM monthly_data ORDER BY cnt ASC, month ASC LIMIT 1) as low_month,
-                    (SELECT cnt FROM monthly_data ORDER BY cnt ASC, month ASC LIMIT 1) as low_cnt,
-                    (SELECT count(*) FROM events WHERE strftime('%Y-%m', date) = strftime('%Y-%m', today()) AND date <= today()) as current_cnt
-            """
-            
             try:
-                df_trend = self.db.query(sql_trend)
-                df_stats = self.db.query(sql_stats)
+                df_trend, df_stats = self.analysis.get_event_analysis()
                 
                 if not df_trend.empty and not df_stats.empty:
                     max_count = df_trend['count'].max()
@@ -533,19 +485,11 @@ class HomePage:
             </div>
             """
 
+        df_host, df_attend, df_pop = self.analysis.get_hall_of_fame(cur_month_str)
+        
         with c_host:
             st.markdown("##### 📣 이달의 공지왕")
             try:
-                # members 테이블과 JOIN하여 profile_image_url 가져옴
-                df_host = self.db.query(f"""
-                    SELECT m.name, m.profile_image_url, COUNT(*) as cnt 
-                    FROM events e 
-                    JOIN members m ON e.host = m.user_no 
-                    WHERE strftime('%Y-%m', e.date) = '{cur_month_str}' 
-                    GROUP BY m.name, m.profile_image_url 
-                    ORDER BY cnt DESC 
-                    LIMIT 3
-                """)
                 if not df_host.empty:
                     for idx, row in df_host.iterrows():
                         st.markdown(get_rank_html(idx, row['name'], f"{row['cnt']}회", row['profile_image_url']), unsafe_allow_html=True)
@@ -561,19 +505,6 @@ class HomePage:
         with c_attend:
             st.markdown("##### 🏃 이달의 참석왕")
             try:
-                # active_members에는 profile_image_url이 없을 수 있으므로 members와 다시 JOIN 하거나
-                # 애초에 획득점수를 다시 계산하여 가져옴
-                df_attend = self.db.query(f"""
-                    SELECT m.name, m.profile_image_url, SUM(e.score) as score
-                    FROM attendees a
-                    JOIN events e ON a.event_id = e.event_id
-                    JOIN members m ON a.user_no = m.user_no
-                    WHERE strftime('%Y-%m', e.date) = '{cur_month_str}'
-                    GROUP BY m.name, m.profile_image_url
-                    ORDER BY score DESC
-                    LIMIT 3
-                """)
-                
                 if not df_attend.empty:
                     for idx, row in df_attend.iterrows():
                         st.markdown(get_rank_html(idx, row['name'], f"{int(row['score'])}점", row['profile_image_url']), unsafe_allow_html=True)
@@ -589,7 +520,6 @@ class HomePage:
         with c_event:
             st.markdown("##### 🔥 이달의 인기 산행")
             try:
-                df_pop = self.db.query(f"SELECT e.title, COUNT(a.user_no) as cnt FROM events e JOIN attendees a ON e.event_id = a.event_id WHERE strftime('%Y-%m', e.date) = '{cur_month_str}' GROUP BY e.title ORDER BY cnt DESC LIMIT 3")
                 if not df_pop.empty:
                     for idx, row in df_pop.iterrows():
                         # 이벤트는 이미지가 없으므로 텍스트만 표시하는 기존 스타일 유지하거나 아이콘 사용
@@ -619,23 +549,7 @@ class HomePage:
         st.divider()
         # [생년별 포인트 -> 이달의 생년별 참가 현황]
         try:
-            # 1. 모든 활성 회원의 생년 기종 추출
-            df_all_births = self.db.query("SELECT DISTINCT birth_year FROM members WHERE role<>'exmember' ORDER BY birth_year")
-            
-            # 2. 이달의 참가 데이터 추출 (실인원 기준: 중복 제거)
-            df_curr_attend_raw = self.db.query(f"""
-                SELECT m.birth_year, COUNT(DISTINCT a.user_no) as cnt
-                FROM attendees a
-                JOIN events e ON a.event_id = e.event_id
-                JOIN members m ON a.user_no = m.user_no
-                WHERE strftime('%Y-%m', e.date) = '{cur_month_str}'
-                GROUP BY m.birth_year
-            """)
-            
-            # 3. 모든 생년에 대해 데이터 병합 (없으면 0)
-            if not df_all_births.empty:
-                df_final = pd.merge(df_all_births, df_curr_attend_raw, on='birth_year', how='left').fillna(0)
-                df_final['생년'] = df_final['birth_year'].astype(int).astype(str).str[-2:] + "년"
+            df_final = self.analysis.get_monthly_attend_by_birth(cur_month_str)
                 
                 c = ThemeManager.current.colors
                 
@@ -702,11 +616,9 @@ class HomePage:
 
     def _render_weather_forecast(self):
         try:
-            url = "https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo"
-            res = requests.get(url, timeout=3).json()
+            d = self.analysis.get_weather_forecast()
             
-            if 'daily' in res:
-                d = res['daily']
+            if d:
                 dates = d['time']
                 codes = d['weather_code']
                 max_t = d['temperature_2m_max']
