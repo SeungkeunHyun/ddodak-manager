@@ -26,7 +26,7 @@ def main():
 
     with st.sidebar:
         st.title("⛰️ 또닥또닥 산악회")
-        st.caption("🚀 App Version: v4.35 (Refactored w/ Caching)")
+        st.caption("🚀 App Version: v4.35.13 (Legacy Bubble)")
 
     # 2. Authentication
     
@@ -99,7 +99,7 @@ def main():
         elif choice == "🏃 참가 체크":
             AttendancePage(db_service).render()
         elif choice == "📊 보고서 생성":
-            ReportPage(db).render()
+            ReportPage(db_service).render()
         
         # Logout Button in Sidebar
         auth.logout("로그아웃", "sidebar")

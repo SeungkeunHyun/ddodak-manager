@@ -40,7 +40,7 @@ class AnalysisService:
             SELECT e.*, m.name as host_name, m.birth_year, m.area, m.profile_image_url 
             FROM events e 
             LEFT JOIN members m ON e.host = m.user_no 
-            WHERE e.date >= '{today}' 
+            WHERE e.date > '{today}' 
             ORDER BY e.date ASC 
             LIMIT 3
         """

@@ -200,86 +200,95 @@ class HomePage:
             </div>
             """, unsafe_allow_html=True)
             
-                if not df_dist.empty:
-                    df_dist['gender_norm'] = df_dist['gender'].astype(str).str.upper().str.strip()
-                    gender_map = {'M': 'M', 'MALE': 'M', 'MAN': 'M', '남': 'M', '남성': 'M', 'F': 'F', 'FEMALE': 'F', 'WOMAN': 'F', 'W': 'F', '여': 'F', '여성': 'F'}
-                    df_dist['gender_final'] = df_dist['gender_norm'].map(gender_map).fillna('U')
-                    
-                    age_gender = df_dist.groupby(['birth_year', 'gender_final']).size().unstack(fill_value=0)
-                    if 'M' not in age_gender.columns: age_gender['M'] = 0
-                    if 'F' not in age_gender.columns: age_gender['F'] = 0
-                    age_gender['total'] = age_gender.sum(axis=1)
-                    age_gender = age_gender.reset_index()
-                    
-                    # [Plotly Refactor] Birth Year Bubbles
-                    fig_birth = px.scatter(
-                        age_gender, x="birth_year", y="total", size="total", color="total",
-                        hover_name="birth_year", text="birth_year",
-                        size_max=60,
-                        color_continuous_scale="Viridis", # Neon-like
-                        title="📅 생년별 인원 분포"
-                    )
-                    fig_birth.update_traces(textposition='top center')
-                    fig_birth.update_layout(
-                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color='white'),
-                        xaxis=dict(showgrid=False, title=""),
-                        yaxis=dict(showgrid=False, title="", showticklabels=False),
-                        showlegend=False,
-                        height=400,
-                        # [Explicit ModeBar Styling]
-                        modebar=dict(bgcolor='rgba(255,255,255,0.8)', color='black', activecolor='#ec4899')
-                    )
-                    st.plotly_chart(fig_birth, use_container_width=True, config={
-                        'displayModeBar': True, # Always avail on hover
-                        'displaylogo': False,
-                        'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
-                    })
+            if not df_dist.empty:
+                df_dist['gender_norm'] = df_dist['gender'].astype(str).str.upper().str.strip()
+                gender_map = {'M': 'M', 'MALE': 'M', 'MAN': 'M', '남': 'M', '남성': 'M', 'F': 'F', 'FEMALE': 'F', 'WOMAN': 'F', 'W': 'F', '여': 'F', '여성': 'F'}
+                df_dist['gender_final'] = df_dist['gender_norm'].map(gender_map).fillna('U')
+                
+                # [Chart Restoration] Original Bubble Chart (Total per Year)
+                # Calculates Total per Year and plots single bubble + count text
+                age_gender = df_dist.groupby(['birth_year', 'gender_final']).size().unstack(fill_value=0)
+                if 'M' not in age_gender.columns: age_gender['M'] = 0
+                if 'F' not in age_gender.columns: age_gender['F'] = 0
+                age_gender['total'] = age_gender.sum(axis=1)
+                age_gender = age_gender.reset_index()
+
+                fig_birth = px.scatter(
+                    age_gender, x="birth_year", y="total", size="total", color="total",
+                    title="📅 생년별 인원 분포 (Bubble)",
+                    color_continuous_scale="Tealgrn", # Fixed ValueError from original
+                    labels={'total': '인원수', 'birth_year': '생년'},
+                    size_max=60
+                )
+                fig_birth.update_traces(marker=dict(line=dict(width=1, color='DarkSlateGrey')))
+                
+                fig_birth.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='white'),
+                    xaxis=dict(showgrid=False, title=""),
+                    yaxis=dict(showgrid=False, title="", showticklabels=False),
+                    showlegend=True,
+                    height=400,
+                    modebar=dict(bgcolor='rgba(255,255,255,0.8)', color='black', activecolor='#ec4899'),
+                    # legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1) # No legend needed for color='total'
+                )
+                
+                st.plotly_chart(fig_birth, use_container_width=True, config={
+                    'displayModeBar': True,
+                    'displaylogo': False,
+                    'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
+                })
+
+                # [Redundant Block Removed] age_gender is now calculated above for the chart
 
         with c4:
-            st.subheader("🚻 성별 분포 (Gender)")
+            st.subheader("⚖️ 성별 분포 (Balance)")
             if not df_dist.empty:
                 gender_counts = df_dist['gender_final'].value_counts()
                 total = len(df_dist)
                 m_count, f_count, u_count = gender_counts.get('M', 0), gender_counts.get('F', 0), gender_counts.get('U', 0)
-                m_pct = (m_count / total * 100) if total > 0 else 0
-                f_pct = (f_count / total * 100) if total > 0 else 0
-                u_pct = (u_count / total * 100) if total > 0 else 0
                 
-                # [Plotly Refactor] Gender Pie Chart
-                df_g = pd.DataFrame([
-                    {'gender': '남성', 'count': m_count, 'color': '#3b82f6'},
-                    {'gender': '여성', 'count': f_count, 'color': '#ec4899'},
-                    {'gender': '미상', 'count': u_count, 'color': '#9ca3af'}
-                ])
-                df_g = df_g[df_g['count'] > 0]
-                
-                fig_gender = px.pie(
-                    df_g, values='count', names='gender', 
-                    color='gender', 
-                    color_discrete_map={'남성':'#3b82f6', '여성':'#ec4899', '미상':'#9ca3af'},
-                    hole=0.4,
-                    title='🚻 성별 분포'
-                )
-                fig_gender.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    font=dict(color='white'),
-                    margin=dict(t=50, b=20, l=20, r=20),
-                    showlegend=True,
-                    height=350,
-                    modebar=dict(bgcolor='rgba(255,255,255,0.8)', color='black', activecolor='#ec4899')
-                )
-                st.plotly_chart(fig_gender, use_container_width=True, config={
-                    'displayModeBar': True,
-                    'displaylogo': False,
-                    'modeBarButtonsToRemove': ['hoverClosestPie']
-                })
-        
+                # [Balance Scale Visualization]
+                # [Balance Scale Visualization]
+                # [Balance Scale Visualization]
+                st.markdown(f"""
+<div style="display: flex; align-items: flex-end; justify-content: space-between; height: 120px; padding: 0 40px; margin-top: 30px; position: relative;">
+<!-- Male Side -->
+<div style="display: flex; flex-direction: column; align-items: center; z-index: 2;">
+<div style="background: linear-gradient(135deg, #3b82f6, #2563eb); width: {50 + (m_count/total * 80)}px; height: {50 + (m_count/total * 80)}px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4); border: 4px solid rgba(255,255,255,0.1);">
+<span style="font-size: 20px; font-weight: bold; color: white;">{m_count}</span>
+</div>
+<div style="margin-top: 10px; font-weight: bold; color: #3b82f6;">남성 (Male)</div>
+</div>
+
+<!-- Balance Bar -->
+<div style="position: absolute; bottom: 35px; left: 15%; right: 15%; height: 6px; background: rgba(255,255,255,0.2); border-radius: 4px;"></div>
+<div style="position: absolute; bottom: 25px; left: 50%; width: 4px; height: 20px; background: rgba(255,255,255,0.2); transform: translateX(-50%);"></div>
+<div style="position: absolute; bottom: 20px; left: 50%; width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 20px solid rgba(255,255,255,0.2); transform: translateX(-50%);"></div>
+
+<!-- Center Unknown -->
+<div style="display: flex; flex-direction: column; align-items: center; position: absolute; left: 50%; bottom: 60px; transform: translateX(-50%); z-index: 1;">
+<div style="color: #64748b; font-size: 11px;">미상: {u_count}</div>
+</div>
+
+<!-- Female Side -->
+<div style="display: flex; flex-direction: column; align-items: center; z-index: 2;">
+<div style="background: linear-gradient(135deg, #ec4899, #db2777); width: {50 + (f_count/total * 80)}px; height: {50 + (f_count/total * 80)}px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(236, 72, 153, 0.4); border: 4px solid rgba(255,255,255,0.1);">
+<span style="font-size: 20px; font-weight: bold; color: white;">{f_count}</span>
+</div>
+<div style="margin-top: 10px; font-weight: bold; color: #ec4899;">여성 (Female)</div>
+</div>
+</div>
+<div style="text-align: center; margin-top: 30px; font-size: 13px; color: #94a3b8;">
+전체 회원 성비 (총 {total}명)
+</div>
+""", unsafe_allow_html=True)
+            
         # [Clip Button for Demographics]
         if not df_dist.empty:
             clip_demo = f"👥 [회원 구성 통계]\n"
             # Gender summary
-            clip_demo += f"- 성별 분포: 남성 {m_count}명({m_pct:.1f}%), 여성 {f_count}명({f_pct:.1f}%)\n"
+            clip_demo += f"- 성별 분포: 남성 {m_count}명({(m_count / total * 100) if total else 0:.1f}%), 여성 {f_count}명({(f_count / total * 100) if total else 0:.1f}%)\n"
             # Top 3 birth years
             if 'total' in age_gender.columns:
                 top_births = age_gender.sort_values(by='total', ascending=False).head(3)
@@ -384,7 +393,7 @@ class HomePage:
                         df_trend, x="month", y="count", size="count", color="count",
                         text="count",
                         size_max=50,
-                        color_continuous_scale="Emerald", # Neon Greenish
+                        color_continuous_scale="Tealgrn", # Neon Greenish
                         title="📅 월별 활동 동향"
                     )
                     fig_trend.update_traces(textposition='top center', marker=dict(line=dict(width=2, color='white')))
@@ -550,7 +559,7 @@ class HomePage:
         # [생년별 포인트 -> 이달의 생년별 참가 현황]
         try:
             df_final = self.analysis.get_monthly_attend_by_birth(cur_month_str)
-                
+            if not df_final.empty:
                 c = ThemeManager.current.colors
                 
                 # 차트 생성 (Mockup 기반 프리미엄 디자인)
@@ -560,7 +569,7 @@ class HomePage:
                     text='cnt',
                     color='cnt',
                     # Dynamic Theme Colors
-                    color_continuous_scale=c.chart_colors
+                    color_continuous_scale="Tealgrn"
                 )
                 
                 fig_attend.update_traces(
