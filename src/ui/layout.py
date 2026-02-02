@@ -16,7 +16,7 @@ class Layout:
             # Title & Version are handled in app.py now
             
             # 네비게이션 메뉴
-            return st.radio("메뉴 이동", ["🏠 홈", "👥 회원 관리", "📅 공지 관리", "🏃 참가 체크"])
+            return st.radio("메뉴 이동", ["🏠 홈", "👥 회원 관리", "📅 공지 관리", "🏃 참가 체크", "📊 보고서 생성"])
 
     @staticmethod
     def render_manual(page):
