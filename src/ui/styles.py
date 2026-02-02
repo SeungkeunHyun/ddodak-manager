@@ -14,65 +14,10 @@ class Styles:
         Uses ThemeManager to inject dynamic colors.
         """
         from src.ui.themes import ThemeManager
-        import random
-        # Import Base64 Assets List
-        try:
-            from src.ui.assets import BG_IMAGES
-        except ImportError:
-            BG_IMAGES = [] # Fallback
-
-        # Select a random image from the local AI assets
-        if BG_IMAGES:
-            local_bg_b64 = random.choice(BG_IMAGES)
-        else:
-            local_bg_b64 = ""
-            
+        
         theme = ThemeManager.current
         c = theme.colors
-        
-        # ... (lines 28-196 skipped for brevity in this view, assuming context matches)
-        # Actually I need to replace the CSS block too where it uses the variable.
-        # Let's target the exact CSS block again.
-        
-        # Internal Verified Mountain List
-        mountains = [
-            "https://upload.wikimedia.org/wikipedia/commons/e/e0/Ulsanbawi_Seoraksan_Korea.JPG", 
-            "https://upload.wikimedia.org/wikipedia/commons/5/52/Hallasan_Baengnokdam.jpg",
-            "https://upload.wikimedia.org/wikipedia/commons/1/13/Bukhansan_National_Park.jpg",
-            "https://upload.wikimedia.org/wikipedia/commons/0/07/Jirisan_Cheonwangbong_Peak.jpg",
-            "https://upload.wikimedia.org/wikipedia/commons/9/91/Naejangsan_National_Park.jpg"
-        ]
-        
-        # Select Image
-        bg_url = theme.bg_image_url
-        if bg_url == "RANDOM_KOREAN_MOUNTAIN":
-             # Use the first one (Ulsanbawi) for stability as requested, or random.
-             # Let's go back to random but with Base64 caching to ensure it works.
-             # Actually, user said "Random" in Step 906, but "Fixed" in Step 962.
-             # Let's use Random as per original requirement, but Base64 ensures it loads.
-             bg_url = random.choice(mountains)
-        
-        # Helper to load image as Base64 (Cached)
-        @st.cache_data(show_spinner=False)
-        def get_img_as_base64(url):
-            try:
-                response = requests.get(url, timeout=5)
-                if response.status_code == 200:
-                    return base64.b64encode(response.content).decode()
-            except:
-                return None
-            return None
 
-        img_b64 = get_img_as_base64(bg_url)
-        
-        # Consolidate Background: Prefer local asset, then fetched B64, then URL
-        if local_bg_b64:
-            bg_css_val = f"url('data:image/png;base64,{local_bg_b64}')"
-        elif img_b64:
-            bg_css_val = f"url('data:image/jpg;base64,{img_b64}')"
-        else:
-            bg_css_val = f"url('{bg_url}')"
-        
         st.markdown(f"""
         <style>
             /* 1. Google Fonts Import */
@@ -82,7 +27,7 @@ class Styles:
             html, body, [class*="css"] {{
                 font-family: '{theme.font_body}', sans-serif;
                 color: {c.text_primary};
-                background-color: {c.background}; /* Fallback */
+                background-color: {c.background};
             }}
             h1, h2, h3 {{
                 font-family: '{theme.font_header}', '{theme.font_body}', sans-serif !important;
@@ -114,7 +59,7 @@ class Styles:
                 border: 1px solid {c.border} !important;
                 border-radius: 20px !important;
                 padding: 24px !important;
-                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
                 transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
                 color: {c.text_primary} !important;
             }}
@@ -126,7 +71,7 @@ class Styles:
             /* 3D Hover Effect */
             .hover-3d:hover {{
                 transform: translateY(-5px);
-                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
                 border-color: {c.primary} !important;
             }}
 
@@ -139,7 +84,7 @@ class Styles:
             /* 탭 스타일 */
             .stTabs [data-baseweb="tab-list"] {{
                 gap: 10px;
-                background: rgba(0,0,0,0.05);
+                background: transparent;
                 padding: 8px;
                 border-radius: 12px;
             }}
@@ -153,7 +98,7 @@ class Styles:
             }}
             .stTabs [data-baseweb="tab"]:hover {{
                 color: {c.primary};
-                background-color: rgba(255,255,255,0.05);
+                background-color: rgba(0,0,0,0.05);
             }}
             .stTabs [data-baseweb="tab"][aria-selected="true"] {{
                 background: {c.primary_gradient};
@@ -209,53 +154,22 @@ class Styles:
                  .no-print, header, .stSidebar {{ display: none !important; }}
             }}
             
-            /* 8. Background Overlay & AI Image Fix (Asset Import) */
-            .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
-                background: transparent !important;
+            /* 8. Application Background - Solid Clean Look */
+            .stApp {{
+                background-color: {c.background} !important;
+                background-image: none !important;
             }}
             
             [data-testid="stAppViewContainer"] {{
-                background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), {bg_css_val} !important;
-                background-size: cover !important;
-                background-position: center center !important;
-                background-attachment: fixed !important;
-                background-repeat: no-repeat !important;
+                background-color: {c.background} !important;
+                background-image: none !important;
+            }}
+            
+            [data-testid="stHeader"] {{
+                background: transparent !important;
             }}
         </style>
         """, unsafe_allow_html=True)
-
-    @staticmethod
-    def set_background(image_path="background.png"):
-        """
-        배경 이미지를 설정하고 어두운 오버레이를 적용하여 가독성을 높입니다.
-        """
-        try:
-            with open(image_path, "rb") as f:
-                data = f.read()
-            bin_str = base64.b64encode(data).decode()
-            
-            page_bg_img = f"""
-            <style>
-            .stApp {{
-                background-image: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url("data:image/png;base64,{bin_str}");
-                background-size: cover;
-                background-attachment: fixed;
-                background-position: center;
-            }}
-            </style>
-            """
-            st.markdown(page_bg_img, unsafe_allow_html=True)
-        except Exception as e:
-            # 배경 이미지가 없을 경우 안전한 그라데이션 폴백
-            fallback_bg = """
-            <style>
-            .stApp {
-                background: linear-gradient(135deg, #1e1e1e 0%, #0f0f0f 100%);
-            }
-            </style>
-            """
-            st.markdown(fallback_bg, unsafe_allow_html=True)
-            print(f"Background image load failed: {e}")
 
     @staticmethod
     def card_template(content, height="100%", extra_classes=""):

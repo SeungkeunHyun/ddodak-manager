@@ -15,6 +15,19 @@ class MembersPage:
         st.header("👥 회원 명부 관리")
         
         # 1. 원본 데이터 로드
+        # [자동 동기화] 최신 참석일(last_attended) 자동 동기화 쿼리
+        self.db.execute("""
+            UPDATE members AS m
+            SET last_attended = t.max_date
+            FROM (
+                SELECT a.user_no, MAX(e.date) AS max_date
+                FROM attendees AS a
+                JOIN events AS e ON e.event_id = a.event_id
+                GROUP BY a.user_no
+            ) AS t
+            WHERE t.user_no = m.user_no;
+        """)
+        
         df_all = self.db.query("SELECT * FROM members ORDER BY birth_year, name")
         
         # [고급 필터 & 검색]
@@ -56,6 +69,7 @@ class MembersPage:
             "area": st.column_config.TextColumn("지역", width="small"),
             "role": st.column_config.SelectboxColumn("역할", options=['member', 'admin', 'staff', 'exmember'], width="small"),
             "user_no": st.column_config.TextColumn("ID", disabled=False), 
+            "last_attended": st.column_config.Column("최근 참석일", disabled=True, help="참가 체크 시 자동으로 업데이트됩니다."),
         }
         
         updated = st.data_editor(

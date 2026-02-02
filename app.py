@@ -9,7 +9,7 @@ from src.ui.pages.home import HomePage
 from src.ui.pages.members import MembersPage
 from src.ui.pages.events import EventsPage
 from src.ui.pages.attend import AttendancePage
-from src.ui.pages.report import ReportPage
+
 
 # =========================================================
 # Main Entry Point (v3.0 Modular Architecture)
@@ -26,7 +26,7 @@ def main():
 
     with st.sidebar:
         st.title("⛰️ 또닥또닥 산악회")
-        st.caption("🚀 App Version: v4.35.13 (Legacy Bubble)")
+        st.caption("🚀 App Version: v3.2.2 (Yearly Stats)")
 
     # 2. Authentication
     
@@ -96,11 +96,6 @@ def main():
             MembersPage(db_service).render()
         elif choice == "📅 공지 관리":
             EventsPage(db_service).render()
-        elif choice == "🏃 참가 체크":
-            AttendancePage(db_service).render()
-        elif choice == "📊 보고서 생성":
-            ReportPage(db_service).render()
-        
         # Logout Button in Sidebar
         auth.logout("로그아웃", "sidebar")
         

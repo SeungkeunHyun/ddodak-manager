@@ -177,14 +177,30 @@ class HomePage:
             self._render_weather_forecast()
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # 4. 최근 공지 분석 (Relocated from Demographics)
+        # 4. 인포그래픽 (New)
+        st.markdown("---")
+        self._render_infographics()
+        
+        # 5. 최근 공지 분석 (Relocated from Demographics)
         st.markdown("---")
         self._render_event_analysis()
 
     def _render_demographics(self, df_summary):
         c3, c4 = st.columns(2)
-        df_dist = self.analysis.get_demographics()
+        df_dist = self.db.query("SELECT birth_year, gender FROM members WHERE role<>'exmember'")
         
+        # [Fix] Define variables at top scope for safety
+        if not df_dist.empty:
+            df_dist['gender_norm'] = df_dist['gender'].astype(str).str.upper().str.strip()
+            gender_map = {'M': 'M', 'MALE': 'M', 'MAN': 'M', '남': 'M', '남성': 'M', 'F': 'F', 'FEMALE': 'F', 'WOMAN': 'F', 'W': 'F', '여': 'F', '여성': 'F'}
+            df_dist['gender_final'] = df_dist['gender_norm'].map(gender_map).fillna('U')
+            
+            gender_counts = df_dist['gender_final'].value_counts()
+            total = len(df_dist)
+            m_count, f_count, u_count = gender_counts.get('M', 0), gender_counts.get('F', 0), gender_counts.get('U', 0)
+        else:
+            total, m_count, f_count, u_count = 0, 0, 0, 0
+
         with c3:
             st.markdown("### 📅 연도별 인원 (Birth Year)")
             st.markdown("""
@@ -201,10 +217,6 @@ class HomePage:
             """, unsafe_allow_html=True)
             
             if not df_dist.empty:
-                df_dist['gender_norm'] = df_dist['gender'].astype(str).str.upper().str.strip()
-                gender_map = {'M': 'M', 'MALE': 'M', 'MAN': 'M', '남': 'M', '남성': 'M', 'F': 'F', 'FEMALE': 'F', 'WOMAN': 'F', 'W': 'F', '여': 'F', '여성': 'F'}
-                df_dist['gender_final'] = df_dist['gender_norm'].map(gender_map).fillna('U')
-                
                 # [Chart Restoration] Original Bubble Chart (Total per Year)
                 # Calculates Total per Year and plots single bubble + count text
                 age_gender = df_dist.groupby(['birth_year', 'gender_final']).size().unstack(fill_value=0)
@@ -213,76 +225,48 @@ class HomePage:
                 age_gender['total'] = age_gender.sum(axis=1)
                 age_gender = age_gender.reset_index()
 
-                fig_birth = px.scatter(
-                    age_gender, x="birth_year", y="total", size="total", color="total",
-                    title="📅 생년별 인원 분포 (Bubble)",
-                    color_continuous_scale="Tealgrn", # Fixed ValueError from original
-                    labels={'total': '인원수', 'birth_year': '생년'},
-                    size_max=60
-                )
-                fig_birth.update_traces(marker=dict(line=dict(width=1, color='DarkSlateGrey')))
+                # [Chart FIX] Restoration of 3.x Custom HTML Bubble Chart
+                max_total = age_gender['total'].max()
                 
-                fig_birth.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                    font=dict(color='white'),
-                    xaxis=dict(showgrid=False, title=""),
-                    yaxis=dict(showgrid=False, title="", showticklabels=False),
-                    showlegend=True,
-                    height=400,
-                    modebar=dict(bgcolor='rgba(255,255,255,0.8)', color='black', activecolor='#ec4899'),
-                    # legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1) # No legend needed for color='total'
-                )
-                
-                st.plotly_chart(fig_birth, use_container_width=True, config={
-                    'displayModeBar': True,
-                    'displaylogo': False,
-                    'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
-                })
+                html_balls = '<div style="background-color:rgba(0,0,0,0.4);padding:15px;border-radius:12px;display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center;border:1px solid rgba(255,255,255,0.05);">'
+                for _, row in age_gender.iterrows():
+                    year_val = int(row['birth_year'])
+                    count = int(row['total'])
+                    m_val = int(row['M'])
+                    f_val = int(row['F'])
+                    
+                    m_pct = (m_val / count * 100) if count > 0 else 0
+                    bg_style = f"background:linear-gradient(135deg, #3b82f6 {m_pct}%, #ec4899 {m_pct}%);"
+                    
+                    size = 55 + (count / max_total * 45) if max_total > 0 else 55
+                    font_size = 13 + (count / max_total * 5)
+                    
+                    html_balls += f'<div class="hover-3d" style="width:{size}px;height:{size}px;border-radius:50%;{bg_style}color:white;display:flex;flex-direction:column;justify-content:center;align-items:center;box-shadow:0 4px 10px rgba(0,0,0,0.3);border:2px solid rgba(255,255,255,0.15);" title="{year_val}년생: {count}명 (남{m_val}/여{f_val})"><span style="font-weight:bold;font-size:{font_size}px;line-height:1;text-shadow:1px 1px 2px rgba(0,0,0,0.8);">{year_val}년</span><span style="font-size:{font_size*0.8}px;opacity:0.9;text-shadow:1px 1px 2px rgba(0,0,0,0.8);">{count}명</span></div>'
+                html_balls += '</div>'
+                st.markdown(html_balls, unsafe_allow_html=True)
 
-                # [Redundant Block Removed] age_gender is now calculated above for the chart
 
         with c4:
-            st.subheader("⚖️ 성별 분포 (Balance)")
+            st.subheader("⚖️ 성별 분포")
             if not df_dist.empty:
-                gender_counts = df_dist['gender_final'].value_counts()
-                total = len(df_dist)
-                m_count, f_count, u_count = gender_counts.get('M', 0), gender_counts.get('F', 0), gender_counts.get('U', 0)
+                gender_counts = df_dist['gender_final'].value_counts().reset_index()
+                gender_counts.columns = ['gender', 'count']
+                gender_counts['label'] = gender_counts['gender'].map({'M': '남성', 'F': '여성', 'U': '미상'})
                 
-                # [Balance Scale Visualization]
-                # [Balance Scale Visualization]
-                # [Balance Scale Visualization]
-                st.markdown(f"""
-<div style="display: flex; align-items: flex-end; justify-content: space-between; height: 120px; padding: 0 40px; margin-top: 30px; position: relative;">
-<!-- Male Side -->
-<div style="display: flex; flex-direction: column; align-items: center; z-index: 2;">
-<div style="background: linear-gradient(135deg, #3b82f6, #2563eb); width: {50 + (m_count/total * 80)}px; height: {50 + (m_count/total * 80)}px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4); border: 4px solid rgba(255,255,255,0.1);">
-<span style="font-size: 20px; font-weight: bold; color: white;">{m_count}</span>
-</div>
-<div style="margin-top: 10px; font-weight: bold; color: #3b82f6;">남성 (Male)</div>
-</div>
+                fig_gender = px.pie(
+                    gender_counts, values='count', names='label',
+                    color='label',
+                    color_discrete_map={'남성': '#3b82f6', '여성': '#ec4899', '미상': '#64748b'},
+                    hole=0.4
+                )
+                fig_gender.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='white'),
+                    height=350,
+                    showlegend=True
+                )
+                st.plotly_chart(fig_gender, use_container_width=True)
 
-<!-- Balance Bar -->
-<div style="position: absolute; bottom: 35px; left: 15%; right: 15%; height: 6px; background: rgba(255,255,255,0.2); border-radius: 4px;"></div>
-<div style="position: absolute; bottom: 25px; left: 50%; width: 4px; height: 20px; background: rgba(255,255,255,0.2); transform: translateX(-50%);"></div>
-<div style="position: absolute; bottom: 20px; left: 50%; width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 20px solid rgba(255,255,255,0.2); transform: translateX(-50%);"></div>
-
-<!-- Center Unknown -->
-<div style="display: flex; flex-direction: column; align-items: center; position: absolute; left: 50%; bottom: 60px; transform: translateX(-50%); z-index: 1;">
-<div style="color: #64748b; font-size: 11px;">미상: {u_count}</div>
-</div>
-
-<!-- Female Side -->
-<div style="display: flex; flex-direction: column; align-items: center; z-index: 2;">
-<div style="background: linear-gradient(135deg, #ec4899, #db2777); width: {50 + (f_count/total * 80)}px; height: {50 + (f_count/total * 80)}px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(236, 72, 153, 0.4); border: 4px solid rgba(255,255,255,0.1);">
-<span style="font-size: 20px; font-weight: bold; color: white;">{f_count}</span>
-</div>
-<div style="margin-top: 10px; font-weight: bold; color: #ec4899;">여성 (Female)</div>
-</div>
-</div>
-<div style="text-align: center; margin-top: 30px; font-size: 13px; color: #94a3b8;">
-전체 회원 성비 (총 {total}명)
-</div>
-""", unsafe_allow_html=True)
             
         # [Clip Button for Demographics]
         if not df_dist.empty:
@@ -332,43 +316,47 @@ class HomePage:
         df_map['lat'] = df_map['area'].apply(lambda x: get_coords(x)[0])
         df_map['lon'] = df_map['area'].apply(lambda x: get_coords(x)[1])
         
-        # 실제 지도 대신 그래픽화된 좌표 시스템 활용
-        # px.scatter를 사용하여 단순화된 분포도 생성 (v3.9: 고대비 네온 테마)
+        # [RESTORED] Visual Map (Minimalist/Outline Style)
+        # 실제 지도 대신 그래픽화된 좌표 시스템 활용 - Grid 제거, 깔끔한 원형 분포
         fig_map = px.scatter(
             df_map, x="lon", y="lat", size="count", color="count",
-            hover_name="area", size_max=50,
+            hover_name="area", size_max=60,
             text="area",
-            color_continuous_scale=[[0, "#064e3b"], [0.5, "#10b981"], [1, "#06effe"]], # 네온 민트 -> 사이버 시안
-            title='📍 지역별 분포 (Schematic Neon View)'
+            color_continuous_scale=[[0, "rgba(255,255,255,0.2)"], [1, ThemeManager.current.colors.primary]], 
+            # 투명한 화이트 -> 프라이머리 컬러 (미니멀)
+            title='📍 지역별 멤버 분포'
         )
         
         fig_map.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(255,255,255,0.03)',
+            plot_bgcolor='rgba(0,0,0,0)', # No background
             height=500,
             showlegend=False,
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, title=""),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, title=""),
-            margin={"r":20,"t":70,"l":20,"b":20},
-            title_font=dict(size=20, color="#fff", family="Inter, sans-serif"),
-            font=dict(color="#fff", weight='bold'),
-            modebar=dict(bgcolor='rgba(255,255,255,0.8)', color='black', activecolor='#ec4899')
+            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, title="", visible=False), # Hide ALL axis elements
+            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, title="", visible=False),
+            margin={"r":20,"t":50,"l":20,"b":20},
+            title_font=dict(size=18, color=ThemeManager.current.colors.text_secondary, family="Inter, sans-serif"),
+            font=dict(color="white", weight='bold'),
+            coloraxis_showscale=False
         )
+        
+        # Add Korea Map Outline (Pseudo) or just keep it abstract
+        # Just circles Clean
         fig_map.update_traces(
             textposition='top center', 
             marker=dict(
-                line=dict(width=2, color='rgba(255,255,255,0.5)'),
-                opacity=0.9
+                line=dict(width=1, color='rgba(255,255,255,0.8)'),
+                opacity=0.8,
+                symbol='circle'
             ),
-            textfont=dict(size=14, color="#fff")
+            textfont=dict(size=13, color=ThemeManager.current.colors.text_primary)
         )
         
         st.plotly_chart(fig_map, use_container_width=True, config={
-            'displayModeBar': True, 
-            'displaylogo': False,
-            'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
-        })
-        st.markdown("""<div style="text-align: right; font-size: 13px; color: #bbb; margin-top: -10px;">* 위치는 실제 지도 좌표를 바탕으로 단순화된 모식도입니다.</div>""", unsafe_allow_html=True)
+            'displayModeBar': False, # Hide toolbar for cleaner look
+            'staticPlot': False
+        })  
+
 
     def _render_event_analysis(self):
         c1, c2 = st.columns([1, 1.2])
@@ -388,29 +376,24 @@ class HomePage:
                     
                     curr_v = df_stats['current_cnt'].iloc[0] or 0
                     
-                    # [Plotly Refactor] Trend Bubbles
-                    fig_trend = px.scatter(
-                        df_trend, x="month", y="count", size="count", color="count",
+                    # [Plotly Restoration] Trend Bar
+                    fig_trend = px.bar(
+                        df_trend, x="month", y="count",
                         text="count",
-                        size_max=50,
-                        color_continuous_scale="Tealgrn", # Neon Greenish
-                        title="📅 월별 활동 동향"
+                        title="📅 월별 활동 동향",
+                        color="count",
+                        color_continuous_scale="Tealgrn"
                     )
-                    fig_trend.update_traces(textposition='top center', marker=dict(line=dict(width=2, color='white')))
+                    fig_trend.update_traces(textposition='outside')
                     fig_trend.update_layout(
                          paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                          font=dict(color='white'),
                          xaxis=dict(showgrid=False, title=""),
-                         yaxis=dict(showgrid=False, title="", showticklabels=False), # Hide Y axis
-                         showlegend=False,
-                         height=300,
-                         modebar=dict(bgcolor='rgba(255,255,255,0.8)', color='black', activecolor='#ec4899')
+                         yaxis=dict(showgrid=False, title=""),
+                         height=300
                     )
-                    st.plotly_chart(fig_trend, use_container_width=True, config={
-                        'displayModeBar': True, 
-                        'displaylogo': False,
-                        'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
-                    })
+                    st.plotly_chart(fig_trend, use_container_width=True)
+
             except Exception as e:
                 st.error(f"Trend Load Error: {e}")
 
@@ -622,6 +605,92 @@ class HomePage:
                 st.info(f"📅 생년 데이터가 없습니다.")
         except Exception as e:
             st.error(f"Chart Render Error: {e}")
+
+    def _render_infographics(self):
+        st.subheader("📊 멤버십 & 활동 인사이트")
+        
+        c1, c2 = st.columns(2)
+        
+        # 1. 세대별 참여율 (Participation Rate)
+        with c1:
+            try:
+                df_age = self.analysis.get_participation_by_age_group()
+                if not df_age.empty:
+                    # Radial Chart or Bar Chart
+                    # Let's use Bar Chart for clarity
+                    fig_age = px.bar(
+                        df_age, x='age_group_str', y='participation_rate',
+                        title="📌 출생년도별 활동 참여율 (%)",
+                        text='participation_rate',
+                        color='participation_rate',
+                        color_continuous_scale='Blues'
+                    )
+                    fig_age.update_traces(
+                        texttemplate='%{text}%', 
+                        textposition='outside',
+                        marker_line_color='rgba(255,255,255,0.2)',
+                        marker_line_width=1
+                    )
+                    fig_age.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color=ThemeManager.current.colors.text_primary),
+                        xaxis=dict(title=None, tickfont=dict(size=14)),
+                        yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', title=None, range=[0, 110]),
+                        height=250,
+                        margin=dict(t=40, b=20, l=20, r=20),
+                        coloraxis_showscale=False
+                    )
+                    st.plotly_chart(fig_age, use_container_width=True, config={'displayModeBar': False})
+                    
+                    # Insight Text
+                    best_gen = df_age.loc[df_age['participation_rate'].idxmax()]
+                    st.caption(f"💡 **{best_gen['age_group_str']}**의 참여율이 **{best_gen['participation_rate']}%**로 가장 높습니다!")
+                else:
+                    st.info("데이터 부족")
+            except Exception as e:
+                st.error(f"Age Chart Error: {e}")
+
+        # 2. 요일별 활동 패턴 (Day of Week)
+        with c2:
+            try:
+                df_dow = self.analysis.get_event_weekday_stats()
+                if not df_dow.empty:
+                    # Polar Chart (Radar) for aesthetics
+                    # Need to close the loop for radar? No, Bar Polar is better for discrete
+                    fig_dow = px.line_polar(
+                        df_dow, r='cnt', theta='day_name', line_close=True,
+                        title="🗓️ 요일별 산행 빈도 Pattern",
+                        markers=True
+                    )
+                    fig_dow.update_traces(
+                        fill='toself', 
+                        line_color=ThemeManager.current.colors.accent,
+                        marker=dict(size=8, color='white')
+                    )
+                    fig_dow.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        polar=dict(
+                            bgcolor='rgba(255,255,255,0.02)',
+                            radialaxis=dict(visible=False),
+                            angularaxis=dict(
+                                color=ThemeManager.current.colors.text_secondary,
+                                rotation=90, direction="clockwise"
+                            )
+                        ),
+                        font=dict(color=ThemeManager.current.colors.text_primary),
+                        height=250,
+                        margin=dict(t=40, b=20, l=40, r=40)
+                    )
+                    st.plotly_chart(fig_dow, use_container_width=True, config={'displayModeBar': False})
+                    
+                    # Insight Text
+                    peak_day = df_dow.loc[df_dow['cnt'].idxmax()]
+                    st.caption(f"💡 주로 **{peak_day['day_name']}요일**에 산행이 집중되어 있습니다.")
+                else:
+                    st.info("데이터 부족")
+            except Exception as e:
+                st.error(f"DOW Chart Error: {e}")
 
     def _render_weather_forecast(self):
         try:

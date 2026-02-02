@@ -165,3 +165,65 @@ class AnalysisService:
         df_map = df_summary['지역'].value_counts().reset_index()
         df_map.columns = ['area', 'count']
         return df_map
+    @st.cache_data(ttl=600)
+    def get_participation_by_age_group(_self):
+        """
+        출생년도별 참여율 분석 (1970, 1971... 별 참가 경험자 비율) (v3.2.2 Refinement)
+        """
+        # 1. 전체 회원 수 (출생년도별)
+        
+        sql_total = f"""
+            SELECT 
+                birth_year,
+                COUNT(*) as total_cnt
+            FROM members 
+            WHERE role <> 'exmember'
+            GROUP BY birth_year
+        """
+        df_total = _self.db.query(sql_total)
+        
+        # 2. 활동 회원 수 (참석 기록이 1회 이상 있는 회원)
+        sql_active = f"""
+            SELECT 
+                m.birth_year,
+                COUNT(DISTINCT m.user_no) as active_cnt
+            FROM attendees a
+            JOIN members m ON a.user_no = m.user_no
+            WHERE m.role <> 'exmember'
+            GROUP BY m.birth_year
+        """
+        df_active = _self.db.query(sql_active)
+        
+        if df_total.empty: return pd.DataFrame()
+        
+        # Merge
+        df_merged = pd.merge(df_total, df_active, on='birth_year', how='left').fillna(0)
+        df_merged['participation_rate'] = (df_merged['active_cnt'] / df_merged['total_cnt'] * 100).round(1)
+        # 1970 -> "70년생"
+        df_merged['age_group_str'] = (df_merged['birth_year'] % 100).astype(int).astype(str) + "년생"
+        
+        return df_merged.sort_values('birth_year')
+
+    @st.cache_data(ttl=3600)
+    def get_event_weekday_stats(_self):
+        """
+        요일별 산행 빈도 분석
+        0:일, 1:월, ... 6:토 (DuckDB strftime %w returns 0-6 with 0=Sunday)
+        """
+        sql = """
+            SELECT 
+                strftime('%w', date) as dow_num,
+                count(*) as cnt
+            FROM events
+            GROUP BY dow_num
+            ORDER BY dow_num
+        """
+        df = _self.db.query(sql)
+        
+        # Map number to name
+        day_map = {'0': '일', '1': '월', '2': '화', '3': '수', '4': '목', '5': '금', '6': '토'}
+        if not df.empty:
+            df['day_name'] = df['dow_num'].astype(str).map(day_map)
+            # Sort by user preference (Mon-Sun or Sun-Sat). Let's do Mon-Sun (1-6, 0).
+            # But standard is fine.
+        return df
