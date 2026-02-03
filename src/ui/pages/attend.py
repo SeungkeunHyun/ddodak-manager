@@ -84,6 +84,13 @@ class AttendancePage:
                 import time
                 time.sleep(0.5)
                 
+                # Clear cache to ensure dashboard/analysis reflects changes immediately
+                st.cache_data.clear()
+                
+                # Force widget to re-initialize with sorted 'default' by clearing session state
+                if f"attendees_{sel_ev_id}" in st.session_state:
+                    del st.session_state[f"attendees_{sel_ev_id}"]
+                
                 st.success(f"""
                 ✅ **참석 정보 저장 완료!**
                 - ➕ **추가**: {len(to_add)}명

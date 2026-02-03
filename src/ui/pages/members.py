@@ -130,6 +130,13 @@ class MembersPage:
                 import time
                 time.sleep(0.5)
                 
+                # Clear cache to ensure dashboard/analysis reflects changes immediately
+                st.cache_data.clear()
+                
+                # Force editor refresh by clearing session state
+                if "member_editor" in st.session_state:
+                    del st.session_state["member_editor"]
+                
                 st.success(f"""
                 ✅ **작업 완료!**
                 - 💾 **저장/수정**: {count_saved}건 (변경됨)

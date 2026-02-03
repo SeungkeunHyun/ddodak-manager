@@ -135,6 +135,13 @@ class EventsPage:
                 import time
                 time.sleep(0.5)
                 
+                # Clear cache to ensure dashboard/analysis reflects changes immediately
+                st.cache_data.clear()
+                
+                # Force editor refresh by clearing session state
+                if "event_editor" in st.session_state:
+                    del st.session_state["event_editor"]
+                
                 st.success(f"""
                 ✅ **일정 반영 완료!**
                 - 💾 **저장/수정**: {count_saved}건 (변경됨)
