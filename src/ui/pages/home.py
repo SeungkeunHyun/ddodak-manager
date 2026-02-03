@@ -17,22 +17,7 @@ class HomePage:
         self.ai = ai
         self.analysis = analysis
 
-    def _add_clip_button(self, key, title, content):
-        """리포트 생성을 위한 클립보드 버튼"""
-        if st.button("📋 리포트에 담기", key=key, help="이 내용을 '보고서 생성' 페이지로 가져갑니다."):
-            if 'report_clips' not in st.session_state:
-                st.session_state['report_clips'] = []
-            
-            # 중복 체크
-            if not any(c['key'] == key for c in st.session_state['report_clips']):
-                st.session_state['report_clips'].append({
-                    'key': key,
-                    'title': title,
-                    'content': content
-                })
-                st.toast(f"✅ '{title}' 내용이 담겼습니다! (보고서 페이지에서 확인)")
-            else:
-                st.toast(f"⚠️ 이미 담긴 내용입니다: {title}")
+
 
     def render(self):
         Layout.render_manual("홈")
@@ -159,17 +144,7 @@ class HomePage:
                 st.info("예정된 산행이 없습니다.")
             st.markdown("</div>", unsafe_allow_html=True)
             
-            # [Clip Button for Upcoming Events]
-            if not upcoming.empty:
-                clip_text = f"📅 [다가오는 산행]\n"
-                for _, row in upcoming.iterrows():
-                    d_day = (pd.to_datetime(row['date']) - pd.to_datetime(today)).days
-                    dd_str = f"D-{d_day}" if d_day > 0 else "D-Day"
-                    clip_text += f"- {row['title']} ({pd.to_datetime(row['date']).strftime('%m/%d')}, {dd_str}) / 담당: {row['host_name'] or row['host']}\n"
-                
-                st.markdown("<div style='margin-top: 5px; text-align: right;'>", unsafe_allow_html=True)
-                self._add_clip_button("clip_upcoming", "다가오는 산행", clip_text)
-                st.markdown("</div>", unsafe_allow_html=True)
+
 
         with c4:
             st.markdown(f"""<div style="background-color: rgba(0,0,0,0.5); padding: 20px; border-radius: 15px;">""", unsafe_allow_html=True)
@@ -268,20 +243,7 @@ class HomePage:
                 st.plotly_chart(fig_gender, use_container_width=True)
 
             
-        # [Clip Button for Demographics]
-        if not df_dist.empty:
-            clip_demo = f"👥 [회원 구성 통계]\n"
-            # Gender summary
-            clip_demo += f"- 성별 분포: 남성 {m_count}명({(m_count / total * 100) if total else 0:.1f}%), 여성 {f_count}명({(f_count / total * 100) if total else 0:.1f}%)\n"
-            # Top 3 birth years
-            if 'total' in age_gender.columns:
-                top_births = age_gender.sort_values(by='total', ascending=False).head(3)
-                birth_summary = ", ".join([f"{idx}년({int(row['total'])}명)" for idx, row in top_births.iterrows()])
-                clip_demo += f"- 최다 인원 생년: {birth_summary}"
-            
-            st.markdown("<div style='margin-top: 10px; text-align: right;'>", unsafe_allow_html=True)
-            self._add_clip_button("clip_demographics", "회원 구성 통계", clip_demo)
-            st.markdown("</div>", unsafe_allow_html=True)
+
 
         st.divider()
         
@@ -429,16 +391,7 @@ class HomePage:
             except Exception as e:
                 st.error(f"Stats Load Error: {e}")
 
-        # [Clip Button for Analysis]
-        if not df_stats.empty:
-            clip_analysis = f"📊 [최근 산행 분석]\n"
-            clip_analysis += f"- 연간 평균 산행: {avg_v:.1f}회\n"
-            clip_analysis += f"- 활동 최다월: {peak_m} ({int(peak_v)}회)\n"
-            clip_analysis += f"- 이번 달 활동: {int(curr_v)}회"
-            
-            st.markdown("<div style='margin-top: 10px; text-align: right;'>", unsafe_allow_html=True)
-            self._add_clip_button("clip_analysis", "최근 산행 분석", clip_analysis)
-            st.markdown("</div>", unsafe_allow_html=True)
+
 
 
     def _render_hall_of_fame(self, df_summary, active_members):
@@ -533,10 +486,7 @@ class HomePage:
             except Exception as e:
                 st.error(f"Error: {e}")
         
-        # [Clip Button for Hall of Fame]
-        st.markdown("<div style='margin-top: 10px; text-align: right;'>", unsafe_allow_html=True)
-        self._add_clip_button(f"clip_hof_{cur_month_str}", f"{now.month}월 명예의 전당", "\n".join(clip_hall_lines))
-        st.markdown("</div>", unsafe_allow_html=True)
+
 
         st.divider()
         # [생년별 포인트 -> 이달의 생년별 참가 현황]

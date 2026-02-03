@@ -51,16 +51,7 @@ class AttendancePage:
         
         st.info(f"💡 현재 선택된 인원: **{len(selected)}명**")
         
-        # [Clip Button for Report]
-        if selected:
-            clip_title = f"{selected_event['title']} 참석자"
-            clip_content = f"📍 **{selected_event['title']}** ({selected_event['date']})\n"
-            clip_content += f"참석({len(selected)}명): {', '.join([s.split('/')[1] for s in selected])}"
-            
-            # 우측 정렬을 위한 컬럼 배치
-            _, col_clip = st.columns([3, 1])
-            with col_clip:
-                self._add_clip_button(f"clip_attend_{sel_ev_id}", clip_title, clip_content)
+
 
         if st.button("✅ 참석 명단 최종 확정", type="primary"):
             with st.spinner("⏳ 참석 명단을 업데이트 중입니다..."):
@@ -79,19 +70,4 @@ class AttendancePage:
                 """)
                 st.rerun()
 
-    def _add_clip_button(self, key, title, content):
-        """리포트 생성을 위한 클립보드 버튼 (Helper)"""
-        if st.button("📋 리포트에 담기", key=key, help="이 내용을 '보고서 생성' 페이지로 가져갑니다."):
-            if 'report_clips' not in st.session_state:
-                st.session_state['report_clips'] = []
-            
-            # 중복 체크
-            if not any(c['key'] == key for c in st.session_state['report_clips']):
-                st.session_state['report_clips'].append({
-                    'key': key,
-                    'title': title,
-                    'content': content
-                })
-                st.toast(f"✅ '{title}' 내용이 담겼습니다! (보고서 페이지에서 확인)")
-            else:
-                st.toast(f"⚠️ 이미 담긴 내용입니다: {title}")
+
