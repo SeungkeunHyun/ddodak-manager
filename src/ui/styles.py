@@ -46,9 +46,32 @@ class Styles:
                 to {{ opacity: 1; transform: translateY(0); }}
             }}
             
+            @keyframes pulse-glow {{
+                0% {{ box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2); }}
+                70% {{ box-shadow: 0 0 0 10px rgba(0, 0, 0, 0); }}
+                100% {{ box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }}
+            }}
+            
             @keyframes shimmer {{
                 0% {{ background-position: -1000px 0; }}
                 100% {{ background-position: 1000px 0; }}
+            }}
+
+            /* Custom Premium Scrollbar */
+            ::-webkit-scrollbar {{
+                width: 8px;
+                height: 8px;
+            }}
+            ::-webkit-scrollbar-track {{
+                background: rgba(0, 0, 0, 0.05); 
+                border-radius: 4px;
+            }}
+            ::-webkit-scrollbar-thumb {{
+                background: {c.primary}; 
+                border-radius: 4px;
+            }}
+            ::-webkit-scrollbar-thumb:hover {{
+                background: {c.secondary}; 
             }}
 
             /* 4. Glassmorphism Card Style (Themed) */
@@ -57,9 +80,11 @@ class Styles:
                 backdrop-filter: blur(16px) !important;
                 -webkit-backdrop-filter: blur(16px) !important;
                 border: 1px solid {c.border} !important;
+                border-top: 1px solid rgba(255, 255, 255, 0.3) !important;
+                border-left: 1px solid rgba(255, 255, 255, 0.3) !important;
                 border-radius: 20px !important;
                 padding: 24px !important;
-                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+                box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07) !important;
                 transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
                 color: {c.text_primary} !important;
             }}
@@ -110,11 +135,12 @@ class Styles:
             /* 버튼 스타일 */
             .stButton > button {{
                 border-radius: 12px;
-                background: {c.primary};
+                background: linear-gradient(135deg, {c.primary} 0%, {c.secondary} 100%);
                 border: none;
                 color: white;
-                transition: all 0.2s;
+                transition: all 0.3s ease;
                 font-family: '{theme.font_header}', sans-serif;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             }}
             .stButton > button:hover {{
                 transform: translateY(-2px);

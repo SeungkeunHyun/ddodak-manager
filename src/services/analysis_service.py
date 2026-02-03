@@ -13,7 +13,7 @@ class AnalysisService:
     def __init__(self, db_service):
         self.db = db_service
 
-    @st.cache_data(ttl=600)  # Cache for 10 minutes
+    @st.cache_data(ttl=180)  # Cache for 3 minutes (Optimization)
     def get_overview_kpis(_self):
         """
         종합 현황 KPI (총 회원, 최근 활동, 누적 포인트) 계산
@@ -31,7 +31,8 @@ class AnalysisService:
 
         return total_members, active_count, total_activity_score
 
-    def get_upcoming_events(self):
+    @st.cache_data(ttl=60) # Cache for 1 minute (Performance)
+    def get_upcoming_events(_self):
         """
         다가오는 산행 목록 조회 (캐싱 제외 - 실시간성 중요)
         """
@@ -44,7 +45,7 @@ class AnalysisService:
             ORDER BY e.date ASC 
             LIMIT 3
         """
-        return self.db.query(sql)
+        return _self.db.query(sql)
 
     @st.cache_data(ttl=3600) # Cache for 1 hour
     def get_weather_forecast(_self):

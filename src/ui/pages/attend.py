@@ -55,18 +55,40 @@ class AttendancePage:
 
         if st.button("✅ 참석 명단 최종 확정", type="primary"):
             with st.spinner("⏳ 참석 명단을 업데이트 중입니다..."):
-                # 기존 내역 삭제 후 재생성 (Bulk Insert)
-                self.db.execute("DELETE FROM attendees WHERE event_id=?", (str(sel_ev_id),))
+                # [Delta Update Logic]
+                # 1. Get current selection IDs
+                current_selection_ids = set()
+                # Create a map for faster lookup if list is large
+                display_map = dict(zip(mb_list['display'], mb_list['user_no']))
+                
                 for val in selected:
-                    u_no = mb_list.loc[mb_list['display'] == val, 'user_no'].iloc[0]
+                    if val in display_map:
+                        current_selection_ids.add(display_map[val])
+                
+                # 2. Get existing IDs (already loaded in 'existing')
+                existing_ids = set(existing)
+                
+                # 3. Calculate Diff
+                to_add = current_selection_ids - existing_ids
+                to_remove = existing_ids - current_selection_ids
+                
+                # 4. Execute Updates
+                # ADD
+                for u_no in to_add:
                     self.db.execute("INSERT INTO attendees (event_id, user_no) VALUES (?, ?)", (str(sel_ev_id), u_no))
+                
+                # REMOVE
+                for u_no in to_remove:
+                    self.db.execute("DELETE FROM attendees WHERE event_id=? AND user_no=?", (str(sel_ev_id), u_no))
                 
                 import time
                 time.sleep(0.5)
                 
                 st.success(f"""
                 ✅ **참석 정보 저장 완료!**
-                - 🏃 **최종 참석 인원**: {len(selected)}명
+                - ➕ **추가**: {len(to_add)}명
+                - ➖ **제외**: {len(to_remove)}명
+                - 🏃 **최종 참석 인원**: {len(current_selection_ids)}명
                 """)
                 st.rerun()
 

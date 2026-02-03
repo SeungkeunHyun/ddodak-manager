@@ -69,12 +69,16 @@ class EventsPage:
                     self.db.execute("DELETE FROM events WHERE event_id = ?", (d_id,))
                     self.db.execute("DELETE FROM attendees WHERE event_id = ?", (d_id,))
                 
-                # [저장/수정 로직]
+                # [저장/수정 로직 - Delta Update]
                 cols = ", ".join([f'"{c}"' for c in updated.columns])
                 placeholders = ", ".join(["?"] * len(updated.columns))
                 sql = f"INSERT OR REPLACE INTO events ({cols}) VALUES ({placeholders})"
                 
                 import re
+                
+                count_saved = 0
+                df_orig_indexed = df_filtered.set_index('event_id')
+
                 for _, row in updated.iterrows():
                     # event_id 추출 및 보정
                     event_id = str(row['event_id']).strip() if not pd.isna(row['event_id']) else ""
@@ -98,14 +102,42 @@ class EventsPage:
                         else:
                             row_data.append(row[col])
                             
-                    self.db.execute(sql, tuple(row_data))
+                    # Delta Check
+                    # If event_id is empty (new row without ID yet?) or not in original
+                    # Note: Original logic extracted ID from URL, so we must compare constructed row
+                    
+                    if event_id not in df_orig_indexed.index:
+                        # New record
+                        self.db.execute(sql, tuple(row_data))
+                        count_saved += 1
+                        continue
+                    
+                    # Existing record - Compare
+                    orig_row = df_orig_indexed.loc[event_id]
+                    # We need to construct a robust comparison dict
+                    # Current row dict (with fixed event_id)
+                    curr_dict = {col: (event_id if col=='event_id' else row[col]) for col in updated.columns}
+                    orig_dict = orig_row.to_dict()
+                    
+                    # Simple equality might fail on types (int vs str). 
+                    # Let's stringify everything for safe comparison or rely on basic equality
+                    is_changed = False
+                    for k, v in curr_dict.items():
+                        orig_v = orig_dict.get(k)
+                        if str(v) != str(orig_v):
+                            is_changed = True
+                            break
+                    
+                    if is_changed:
+                         self.db.execute(sql, tuple(row_data))
+                         count_saved += 1
                     
                 import time
                 time.sleep(0.5)
                 
                 st.success(f"""
                 ✅ **일정 반영 완료!**
-                - 💾 **저장/수정**: {len(updated)}건
+                - 💾 **저장/수정**: {count_saved}건 (변경됨)
                 - 🗑️ **삭제**: {len(deleted_ids)}건
                 """)
                 st.rerun()

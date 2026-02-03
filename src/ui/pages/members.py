@@ -92,19 +92,47 @@ class MembersPage:
                 for d_id in deleted_ids:
                     self.db.execute("DELETE FROM members WHERE user_no = ?", (d_id,))
                 
-                # [저장/수정 로직]
+                # [저장/수정 로직 - Delta Update]
                 cols = ", ".join([f'"{c}"' for c in updated.columns])
                 placeholders = ", ".join(["?"] * len(updated.columns))
                 sql = f"INSERT OR REPLACE INTO members ({cols}) VALUES ({placeholders})"
-                for _, row in updated.iterrows():
-                    self.db.execute(sql, tuple(row))
                 
+                count_saved = 0
+                
+                # Comparison for delta
+                # Ensure index uniqueness for searching
+                df_orig_indexed = df_filtered.set_index('user_no')
+                
+                for _, row in updated.iterrows():
+                    user_id = row['user_no']
+                    
+                    # 1. New Record
+                    if user_id not in df_orig_indexed.index:
+                        self.db.execute(sql, tuple(row))
+                        count_saved += 1
+                        continue
+                        
+                    # 2. Existing Record - Check for changes
+                    # Compare hash or values. Simple value comparison:
+                    orig_row = df_orig_indexed.loc[user_id]
+                    
+                    # Align types if necessary (Pandas sometimes changes ints to floats in editor)
+                    # For simplicity, we assume Streamlit editor maintains types reasonably well or we rely on inequality
+                    
+                    # Create dictionaries for comparison to ignore index/series metadata differences
+                    curr_dict = row.to_dict()
+                    orig_dict = orig_row.to_dict()
+                    
+                    if curr_dict != orig_dict:
+                        self.db.execute(sql, tuple(row))
+                        count_saved += 1
+
                 import time
                 time.sleep(0.5)
                 
                 st.success(f"""
                 ✅ **작업 완료!**
-                - 💾 **저장/수정**: {len(updated)}건
+                - 💾 **저장/수정**: {count_saved}건 (변경됨)
                 - 🗑️ **삭제**: {len(deleted_ids)}건
                 """)
                 st.rerun()
