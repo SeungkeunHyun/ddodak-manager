@@ -325,3 +325,50 @@ class AnalysisService:
             df_season['season'] = pd.Categorical(df_season['season'], categories=sorter, ordered=True)
             return df_season.sort_values('season')
         return pd.DataFrame()
+
+    @st.cache_data(ttl=3600)
+    def get_participation_timing_stats(_self):
+        """
+        골든 타임 분석: 신규 회원이 첫 산행에 참여하기까지 걸리는 시간 (Conversion Speed)
+        """
+        try:
+            # 멤버별 가입일(m.created_at)과 첫 산행일(MIN(e.date)) 계산
+            # attendees 테이블에 created_at(신청시각)이 없더라도, 
+            # 회원의 가입일자 대비 실제 행사 참가일 차이를 통해 '적응 속도'를 측정 가능.
+            sql = """
+                SELECT 
+                    m.user_no,
+                    m.created_at,
+                    MIN(e.date) as first_event_date
+                FROM attendees a
+                JOIN events e ON a.event_id = e.event_id
+                JOIN members m ON a.user_no = m.user_no
+                WHERE m.role <> 'exmember' 
+                  AND m.created_at IS NOT NULL
+                GROUP BY m.user_no, m.created_at
+            """
+            df = _self.db.query(sql)
+            
+            if df.empty: return pd.Series()
+            
+            # DataType Conversion
+            df['created_at'] = pd.to_datetime(df['created_at'])
+            df['first_event_date'] = pd.to_datetime(df['first_event_date'])
+            
+            # Calculate Days Diff
+            df['days_to_first'] = (df['first_event_date'] - df['created_at']).dt.days
+            
+            # Filter valid (>=0). sometimes events are created before member join? (Admin case)
+            df = df[df['days_to_first'] >= 0]
+            
+            # Binning
+            # 0-7일 (1주 내), 8-30일 (1달 내), 31-90일 (3달 내), 90일+ (3달 이상)
+            bins = [-1, 7, 30, 90, 9999]
+            labels = ['⚡ 1주 이내', '📅 1달 이내', '🐢 3달 이내', '💤 3달 이후']
+            df['timing_group'] = pd.cut(df['days_to_first'], bins=bins, labels=labels)
+            
+            return df['timing_group'].value_counts().sort_index()
+            
+        except Exception as e:
+            print(f"Timing Stats Error: {e}")
+            return pd.Series()

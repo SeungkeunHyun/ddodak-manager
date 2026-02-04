@@ -193,8 +193,8 @@ class HomePage:
                 st.markdown("###### 👨‍👩‍👧‍👦 세대/생년별 분포 (By Birth Year)")
                 fig_tree = px.treemap(
                     df_tree, path=['age_group', 'birth_year', 'gender_final'], values='count',
-                    color='birth_year',
-                    color_discrete_sequence=px.colors.qualitative.Prism,
+                    color='gender_final',
+                    color_discrete_map={'남': '#3b82f6', '여': '#ec4899', 'U': '#94a3b8'},
                     title=None
                 )
                 fig_tree.update_traces(
@@ -662,6 +662,54 @@ class HomePage:
                     st.info("데이터 부족")
             except Exception as e:
                 st.error(f"Seasonality Chart Error: {e}")
+
+        st.markdown("---")
+        
+        # 3. Participation Timing (Conversion Speed) - New Infographic
+        st.subheader("⚡ 골든 타임 (Golden Time)")
+        c3, c4 = st.columns([1, 2])
+        
+        with c3:
+            st.markdown("""
+            <div style="background-color: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+                <span style="font-size: 18px; font-weight: bold; color: #ec4899;">❓ 언제 첫 산행을 할까요?</span><br>
+                <div style="margin-top: 10px; font-size: 14px; color: #ddd; line-height: 1.6;">
+                    신규 회원이 가입 후 <b>첫 산행</b>에 참여하기까지 걸리는 시간입니다.<br>
+                    대부분의 열정 회원은 <span style="color: #4ade80; font-weight: bold;">가입 1달 내</span>에 첫 활동을 시작합니다.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with c4:
+            try:
+                timing_stats = self.analysis.get_participation_timing_stats()
+                if not timing_stats.empty:
+                    df_timing = timing_stats.reset_index()
+                    df_timing.columns = ['range', 'count']
+                    
+                    fig_timing = px.bar(
+                        df_timing, x='count', y='range', orientation='h',
+                        text='count',
+                        color='range',
+                        color_discrete_sequence=['#ef4444', '#f59e0b', '#3b82f6', '#94a3b8'] # Red (Fast), Orange, Blue, Grey
+                    )
+                    
+                    fig_timing.update_traces(textposition='inside', textfont=dict(color='white'))
+                    fig_timing.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='white', family="Inter"),
+                        xaxis=dict(showgrid=False, title=None, visible=False),
+                        yaxis=dict(showgrid=False, title=None, tickfont=dict(size=14)),
+                        height=250,
+                        margin=dict(t=0, b=0, l=0, r=0),
+                        showlegend=False
+                    )
+                    st.plotly_chart(fig_timing, use_container_width=True)
+                else:
+                    st.info("📉 데이터 분석 중...")
+            except Exception as e:
+                st.error(f"Timing Error: {e}")
 
     def _render_weather_forecast(self):
         try:
