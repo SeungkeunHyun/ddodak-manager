@@ -63,13 +63,14 @@ DuckDB의 고성능 쿼리와 Streamlit의 직관적인 UI를 결합하여 회�
 
 ### 버전 관리 (Versioning)
 - **Major.Minor.Sub**: 기능 중요도에 따라 `v2.24.1`과 같이 버전이 관리됩니다.
-- **최근 버전**: v4.7 (Ultra-Premium Visual Overhaul - 3D/Holographic)
+- **최근 버전**: v4.8 (Premium UI + Smart Data Save)
 - **Docker**: `mysuccess/ddodak-app` 이미지를 통해 배포됩니다.
 
 ---
 
 ## 📅 최신 업데이트 내역 (Release Notes)
 
+- **v4.8**: 데이터 무결성 '스마트 저장'(Delta Update) 도입, 저장 시 자동 정렬 및 새로고침 강제화, 커스텀 스크롤바 등 프리미엄 UI 완성
 - **v4.7**: 프리미엄 3D 글래스모피즘, 홀로그래픽 티켓 스타일 일정, 명예의 전당 포디움(단상) 레이아웃 적용
 - **v4.6**: 모든 작은 글자(캡션, 레이블) 폰트 크기 상향 및 색상 대비 개선으로 가독성 확보
 - **v4.5**: 앱 전반에서 '기수' 명칭을 제거하고 '생년'으로 통합

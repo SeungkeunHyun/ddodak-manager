@@ -167,80 +167,83 @@ class HomePage:
         # [Fix] Define variables at top scope for safety
         if not df_dist.empty:
             df_dist['gender_norm'] = df_dist['gender'].astype(str).str.upper().str.strip()
-            gender_map = {'M': 'M', 'MALE': 'M', 'MAN': 'M', '남': 'M', '남성': 'M', 'F': 'F', 'FEMALE': 'F', 'WOMAN': 'F', 'W': 'F', '여': 'F', '여성': 'F'}
+            # [Translation] Map Gender to Korean
+            gender_map = {'M': '남', 'MALE': '남', 'MAN': '남', '남': '남', '남성': '남', 'F': '여', 'FEMALE': '여', 'WOMAN': '여', 'W': '여', '여': '여', '여성': '여'}
             df_dist['gender_final'] = df_dist['gender_norm'].map(gender_map).fillna('U')
             
             gender_counts = df_dist['gender_final'].value_counts()
             total = len(df_dist)
-            m_count, f_count, u_count = gender_counts.get('M', 0), gender_counts.get('F', 0), gender_counts.get('U', 0)
+            m_count, f_count, u_count = gender_counts.get('남', 0), gender_counts.get('여', 0), gender_counts.get('U', 0)
         else:
             total, m_count, f_count, u_count = 0, 0, 0, 0
 
-        with c3:
-            st.markdown("### 📅 연도별 인원 (Birth Year)")
-            st.markdown("""
-            <div style="display: flex; gap: 15px; margin-bottom: 10px; font-size: 14px; color: #eee; background-color: rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 8px; width: fit-content;">
-                <div style="display: flex; align-items: center;">
-                    <span style="display: inline-block; width: 12px; height: 12px; background-color: #3b82f6; border-radius: 50%; margin-right: 6px;"></span>
-                    <span>남성 (Male)</span>
-                </div>
-                <div style="display: flex; align-items: center;">
-                    <span style="display: inline-block; width: 12px; height: 12px; background-color: #ec4899; border-radius: 50%; margin-right: 6px;"></span>
-                    <span>여성 (Female)</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+        if not df_dist.empty:
+            st.markdown("### 📊 회원 구성 및 성장 (Composition & Growth)")
             
-            if not df_dist.empty:
-                # [Chart Restoration] Original Bubble Chart (Total per Year)
-                # Calculates Total per Year and plots single bubble + count text
-                age_gender = df_dist.groupby(['birth_year', 'gender_final']).size().unstack(fill_value=0)
-                if 'M' not in age_gender.columns: age_gender['M'] = 0
-                if 'F' not in age_gender.columns: age_gender['F'] = 0
-                age_gender['total'] = age_gender.sum(axis=1)
-                age_gender = age_gender.reset_index()
-
-                # [Chart FIX] Restoration of 3.x Custom HTML Bubble Chart
-                max_total = age_gender['total'].max()
-                
-                html_balls = '<div style="background-color:rgba(0,0,0,0.4);padding:15px;border-radius:12px;display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center;border:1px solid rgba(255,255,255,0.05);">'
-                for _, row in age_gender.iterrows():
-                    year_val = int(row['birth_year'])
-                    count = int(row['total'])
-                    m_val = int(row['M'])
-                    f_val = int(row['F'])
-                    
-                    m_pct = (m_val / count * 100) if count > 0 else 0
-                    bg_style = f"background:linear-gradient(135deg, #3b82f6 {m_pct}%, #ec4899 {m_pct}%);"
-                    
-                    size = 55 + (count / max_total * 45) if max_total > 0 else 55
-                    font_size = 13 + (count / max_total * 5)
-                    
-                    html_balls += f'<div class="hover-3d" style="width:{size}px;height:{size}px;border-radius:50%;{bg_style}color:white;display:flex;flex-direction:column;justify-content:center;align-items:center;box-shadow:0 4px 10px rgba(0,0,0,0.3);border:2px solid rgba(255,255,255,0.15);" title="{year_val}년생: {count}명 (남{m_val}/여{f_val})"><span style="font-weight:bold;font-size:{font_size}px;line-height:1;text-shadow:1px 1px 2px rgba(0,0,0,0.8);">{year_val}년</span><span style="font-size:{font_size*0.8}px;opacity:0.9;text-shadow:1px 1px 2px rgba(0,0,0,0.8);">{count}명</span></div>'
-                html_balls += '</div>'
-                st.markdown(html_balls, unsafe_allow_html=True)
-
-
-        with c4:
-            st.subheader("⚖️ 성별 분포")
-            if not df_dist.empty:
-                gender_counts = df_dist['gender_final'].value_counts().reset_index()
-                gender_counts.columns = ['gender', 'count']
-                gender_counts['label'] = gender_counts['gender'].map({'M': '남성', 'F': '여성', 'U': '미상'})
-                
-                fig_gender = px.pie(
-                    gender_counts, values='count', names='label',
-                    color='label',
-                    color_discrete_map={'남성': '#3b82f6', '여성': '#ec4899', '미상': '#64748b'},
-                    hole=0.4
+            # [Data Prep for Treemap]
+            # [Translation] Age Group Suffix
+            df_dist['age_group'] = (df_dist['birth_year'] // 10 * 10).astype(str) + "년대생"
+            # [Refinement 2] Group by Age Group + Birth Year + Gender
+            df_tree = df_dist.groupby(['age_group', 'birth_year', 'gender_final']).size().reset_index(name='count')
+            
+            # [Chart 1] Generation Treemap
+            c_tree, c_growth = st.columns([1.2, 1])
+            
+            with c_tree:
+                st.markdown("###### 👨‍👩‍👧‍👦 세대/생년별 분포 (By Birth Year)")
+                fig_tree = px.treemap(
+                    df_tree, path=['age_group', 'birth_year', 'gender_final'], values='count',
+                    color='birth_year',
+                    color_discrete_sequence=px.colors.qualitative.Prism,
+                    title=None
                 )
-                fig_gender.update_layout(
+                fig_tree.update_traces(
+                    hovertemplate='<b>%{label}</b><br>인원: %{value}명<br>비율: %{percentParent:.1%}',
+                    textinfo="label+value",
+                    marker=dict(cornerradius=5)
+                )
+                fig_tree.update_layout(
                     paper_bgcolor='rgba(0,0,0,0)',
-                    font=dict(color='white'),
-                    height=350,
-                    showlegend=True
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='white', family="Inter"),
+                    margin=dict(t=0, l=0, r=0, b=0),
+                    height=300
                 )
-                st.plotly_chart(fig_gender, use_container_width=True)
+                st.plotly_chart(fig_tree, use_container_width=True)
+
+            # [Chart 2] Member Growth Trend (Changed to New Member Influx)
+            with c_growth:
+                st.markdown("###### 📉 신규 회원 유입 추이 (New Member Influx)")
+                df_growth = self.analysis.get_member_growth_trend()
+                if not df_growth.empty:
+                    fig_growth = px.line(
+                        df_growth, x='month', y='new_members',
+                        markers=True,
+                        line_shape='spline'
+                    )
+                    fig_growth.update_traces(
+                        line_color='#4ade80',  # Bright Green
+                        line_width=3,
+                        marker=dict(size=6, color='#22c55e', line=dict(width=2, color='white'))
+                    )
+                    fig_growth.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='white'),
+                        xaxis=dict(showgrid=False, title=None, tickfont=dict(color='#aaa')),
+                        yaxis=dict(gridcolor='rgba(255,255,255,0.1)', title=None, tickfont=dict(color='#aaa')),
+                        margin=dict(t=20, l=10, r=10, b=10),
+                        height=280,
+                        hovermode="x unified"
+                    )
+                    # Add Gradient Area (Manual update using graph_objects features exposed via update_traces not fully flexible in px, so simple line is safe)
+                    st.plotly_chart(fig_growth, use_container_width=True)
+                else:
+                    st.info("데이터 부족")
+
+
+        # [Removed Legacy Gender Pie - Integrated into Treemap]
+
 
             
 
@@ -557,90 +560,108 @@ class HomePage:
             st.error(f"Chart Render Error: {e}")
 
     def _render_infographics(self):
-        st.subheader("📊 멤버십 & 활동 인사이트")
+        st.subheader("📊 멤버십 & 활동 인사이트 (Insights)")
         
         c1, c2 = st.columns(2)
         
-        # 1. 세대별 참여율 (Participation Rate)
+        # 1. Active vs Dormant (Donut)
         with c1:
             try:
-                df_age = self.analysis.get_participation_by_age_group()
-                if not df_age.empty:
-                    # Radial Chart or Bar Chart
-                    # Let's use Bar Chart for clarity
-                    fig_age = px.bar(
-                        df_age, x='age_group_str', y='participation_rate',
-                        title="📌 출생년도별 활동 참여율 (%)",
-                        text='participation_rate',
-                        color='participation_rate',
-                        color_continuous_scale='Blues'
-                    )
-                    fig_age.update_traces(
-                        texttemplate='%{text}%', 
-                        textposition='outside',
-                        marker_line_color='rgba(255,255,255,0.2)',
-                        marker_line_width=1
-                    )
-                    fig_age.update_layout(
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color=ThemeManager.current.colors.text_primary),
-                        xaxis=dict(title=None, tickfont=dict(size=14)),
-                        yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', title=None, range=[0, 110]),
-                        height=250,
-                        margin=dict(t=40, b=20, l=20, r=20),
-                        coloraxis_showscale=False
-                    )
-                    st.plotly_chart(fig_age, use_container_width=True, config={'displayModeBar': False})
+                seg_counts = self.analysis.get_member_activity_segmentation()
+                if not seg_counts.empty:
+                    df_seg = seg_counts.reset_index()
+                    df_seg.columns = ['status', 'count']
                     
-                    # Insight Text
-                    best_gen = df_age.loc[df_age['participation_rate'].idxmax()]
-                    st.caption(f"💡 **{best_gen['age_group_str']}**의 참여율이 **{best_gen['participation_rate']}%**로 가장 높습니다!")
+                    # [Translation] Map status to Korean with criteria
+                    status_map = {
+                        'New': '🌱 신규 (1개월 내)',
+                        'Active': '🔥 열정 (3개월 내)',
+                        'Casual': '🙂 일반 (6개월 내)',
+                        'Dormant': '💤 휴면 (6개월~/미참석)'
+                    }
+                    df_seg['status_ko'] = df_seg['status'].map(status_map).fillna(df_seg['status'])
+                    
+                    # Color Mapping (Keys must match new Korean labels)
+                    colors = {
+                        '🌱 신규 (1개월 내)': '#4ade80',  # Green
+                        '🔥 열정 (3개월 내)': '#3b82f6',  # Blue
+                        '🙂 일반 (6개월 내)': '#60a5fa',  # Light Blue
+                        '💤 휴면 (6개월~/미참석)': '#334155' # Slate
+                    }
+                    
+                    fig_seg = px.pie(
+                        df_seg, values='count', names='status_ko',
+                        color='status_ko',
+                        color_discrete_map=colors,
+                        hole=0.6,
+                        title=None
+                    )
+                    
+                    # Center Text
+                    total_act = df_seg[df_seg['status'].isin(['Active', 'Casual', 'New'])]['count'].sum()
+                    active_rate = (total_act / df_seg['count'].sum() * 100)
+                    
+                    fig_seg.update_traces(
+                        textinfo='percent+label',
+                        textposition='outside',
+                        marker=dict(line=dict(color='#0e1117', width=4))
+                    )
+                    fig_seg.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='white'),
+                        showlegend=False,
+                        height=280,
+                        annotations=[dict(text=f"{int(active_rate)}%<br>활동중", x=0.5, y=0.5, font_size=20, showarrow=False, font_color='white')]
+                    )
+                    st.markdown("###### 🏃 활동 회원 비율 (Activity Rate)")
+                    st.plotly_chart(fig_seg, use_container_width=True)
                 else:
                     st.info("데이터 부족")
             except Exception as e:
-                st.error(f"Age Chart Error: {e}")
+                st.error(f"Activity Chart Error: {e}")
 
-        # 2. 요일별 활동 패턴 (Day of Week)
+        # 2. Seasonal Activity (Bar)
         with c2:
             try:
-                df_dow = self.analysis.get_event_weekday_stats()
-                if not df_dow.empty:
-                    # Polar Chart (Radar) for aesthetics
-                    # Need to close the loop for radar? No, Bar Polar is better for discrete
-                    fig_dow = px.line_polar(
-                        df_dow, r='cnt', theta='day_name', line_close=True,
-                        title="🗓️ 요일별 산행 빈도 Pattern",
-                        markers=True
-                    )
-                    fig_dow.update_traces(
-                        fill='toself', 
-                        line_color=ThemeManager.current.colors.accent,
-                        marker=dict(size=8, color='white')
-                    )
-                    fig_dow.update_layout(
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        polar=dict(
-                            bgcolor='rgba(255,255,255,0.02)',
-                            radialaxis=dict(visible=False),
-                            angularaxis=dict(
-                                color=ThemeManager.current.colors.text_secondary,
-                                rotation=90, direction="clockwise"
-                            )
-                        ),
-                        font=dict(color=ThemeManager.current.colors.text_primary),
-                        height=250,
-                        margin=dict(t=40, b=20, l=40, r=40)
-                    )
-                    st.plotly_chart(fig_dow, use_container_width=True, config={'displayModeBar': False})
+                df_season = self.analysis.get_event_seasonality()
+                if not df_season.empty:
+                    # [Translation] Map seasons to Korean
+                    season_map_ko = {
+                        'Spring': '🌸 봄',
+                        'Summer': '☀️ 여름',
+                        'Autumn': '🍂 가을',
+                        'Winter': '❄️ 겨울'
+                    }
+                    # [Fix] Convert Categorical to string to avoid "Cannot set a Categorical with another" error
+                    df_season['season_ko'] = df_season['season'].astype(str).map(season_map_ko).fillna(df_season['season'].astype(str))
                     
-                    # Insight Text
-                    peak_day = df_dow.loc[df_dow['cnt'].idxmax()]
-                    st.caption(f"💡 주로 **{peak_day['day_name']}요일**에 산행이 집중되어 있습니다.")
+                    fig_sea = px.bar(
+                        df_season, x='season_ko', y='cnt',
+                        color='season_ko',
+                        # Fallback colors if season names don't match exactly, usually handled by discrete map if needed
+                        color_discrete_map={'🌸 봄': '#f472b6', '☀️ 여름': '#22c55e', '🍂 가을': '#fb923c', '❄️ 겨울': '#60a5fa'},
+                        text='cnt'
+                    )
+                    fig_sea.update_traces(
+                        textposition='outside',
+                        marker_line_width=0
+                    )
+                    fig_sea.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='white'),
+                        xaxis=dict(title=None, showgrid=False),
+                        yaxis=dict(title=None, showgrid=True, gridcolor='rgba(255,255,255,0.1)'),
+                        height=280,
+                        showlegend=False,
+                        margin=dict(t=30, l=10, r=10, b=10)
+                    )
+                    st.markdown("###### 🍂 계절별 산행 빈도 (Seasonality)")
+                    st.plotly_chart(fig_sea, use_container_width=True)
                 else:
                     st.info("데이터 부족")
             except Exception as e:
-                st.error(f"DOW Chart Error: {e}")
+                st.error(f"Seasonality Chart Error: {e}")
 
     def _render_weather_forecast(self):
         try:

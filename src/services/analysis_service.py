@@ -228,3 +228,100 @@ class AnalysisService:
             # Sort by user preference (Mon-Sun or Sun-Sat). Let's do Mon-Sun (1-6, 0).
             # But standard is fine.
         return df
+    
+    @st.cache_data(ttl=600)
+    def get_member_growth_trend(_self):
+        """
+        회원 증가 추이 (누적)
+        """
+        # created_at이 없는 레코드는 최소 날짜나 임의의 과거 날짜로 처리해야 함.
+        # 여기서는 created_at이 있다고 가정하고 없으면 earliest event date or fallback
+        sql = """
+            SELECT 
+                strftime('%Y-%m', created_at) as month,
+                count(*) as new_members
+            FROM members 
+            WHERE role <> 'exmember' AND created_at IS NOT NULL
+            GROUP BY month
+            ORDER BY month
+        """
+        df = _self.db.query(sql)
+        
+        if not df.empty:
+            df['cumulative_members'] = df['new_members'].cumsum()
+        
+        return df
+
+    @st.cache_data(ttl=300)
+    def get_member_activity_segmentation(_self):
+        """
+        회원 활동성 세그먼트 (Active, Casual, Dormant, New)
+        - New: 가입 1개월 이내
+        - Active: 최근 3개월 내 참석
+        - Casual: 최근 3~6개월 내 참석
+        - Dormant: 6개월 이상 미참석 혹은 참석 기록 없음 (but not New)
+        """
+        today = datetime.now()
+        three_months_ago = (today - timedelta(days=90)).strftime('%Y-%m-%d')
+        six_months_ago = (today - timedelta(days=180)).strftime('%Y-%m-%d')
+        one_month_ago = (today - timedelta(days=30)).strftime('%Y-%m-%d')
+        
+        sql = f"""
+            SELECT user_no, name, role, created_at, last_attended 
+            FROM members 
+            WHERE role <> 'exmember'
+        """
+        df = _self.db.query(sql)
+        
+        if df.empty: return {"Active": 0, "Dormant": 0}
+        
+        def segment(row):
+            # 1. New Member Check
+            created = pd.to_datetime(row['created_at']) if pd.notna(row['created_at']) else None
+            if created and created > (today - timedelta(days=30)):
+                return "New"
+            
+            # 2. Activity Check
+            last = pd.to_datetime(row['last_attended']) if pd.notna(row['last_attended']) else None
+            
+            if not last:
+                return "Dormant"
+            
+            if last >= pd.to_datetime(three_months_ago):
+                return "Active"
+            elif last >= pd.to_datetime(six_months_ago):
+                return "Casual"
+            else:
+                return "Dormant"
+
+        df['segment'] = df.apply(segment, axis=1)
+        return df['segment'].value_counts()
+
+    @st.cache_data(ttl=3600)
+    def get_event_seasonality(_self):
+        """
+        계절별 산행 빈도
+        """
+        sql = """
+            SELECT strftime('%m', date) as month, count(*) as cnt
+            FROM events
+            GROUP BY month
+        """
+        df = _self.db.query(sql)
+        
+        season_map = {
+            '03':'Spring', '04':'Spring', '05':'Spring',
+            '06':'Summer', '07':'Summer', '08':'Summer',
+            '09':'Autumn', '10':'Autumn', '11':'Autumn',
+            '12':'Winter', '01':'Winter', '02':'Winter'
+        }
+        
+        if not df.empty:
+            df['season'] = df['month'].map(season_map)
+            # Group by Season
+            df_season = df.groupby('season')['cnt'].sum().reset_index()
+            # Sort for display order
+            sorter = ['Spring', 'Summer', 'Autumn', 'Winter']
+            df_season['season'] = pd.Categorical(df_season['season'], categories=sorter, ordered=True)
+            return df_season.sort_values('season')
+        return pd.DataFrame()
