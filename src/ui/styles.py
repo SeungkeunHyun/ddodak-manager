@@ -297,6 +297,5 @@ class Styles:
 
     @staticmethod
     def card_template(content, height="100%", extra_classes=""):
-        return f"""<div class="glass-card hover-3d {extra_classes}" style="height: {height}; display: flex; flex-direction: column; justify-content: center;">
-            {content}
-        </div>"""
+        return f'<div class="glass-card hover-3d {extra_classes}" style="height: {height}; display: flex; flex-direction: column; justify-content: center;">{content}</div>'
+
