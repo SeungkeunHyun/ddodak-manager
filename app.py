@@ -27,7 +27,7 @@ def main():
 
     with st.sidebar:
         st.title("⛰️ 또닥또닥 산악회")
-        st.caption("🚀 App Version: v3.2.5 (Report Full Restore)")
+        st.caption("🚀 App Version: v5.7 (Monthly Rate)")
 
     # 2. Authentication
     

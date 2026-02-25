@@ -81,172 +81,299 @@ class HomePage:
         total_members, active_count, total_activity_score = self.analysis.get_overview_kpis()
 
         c = ThemeManager.current.colors
+
+        # Compute active rate for trend display
+        active_rate = round(active_count / total_members * 100) if total_members else 0
         
         c1, c2, c3 = st.columns(3)
         with c1:
-            # Force White/Light colors for visibility on dark background
-            st.markdown(Styles.card_template(f"""<span style="font-size: 15px; color: #b7e4c7 !important; font-weight: bold;">총 회원수</span><br><span style="font-size: 38px; font-weight: bold; color: #ffffff !important;">{total_members}</span>""", extra_classes="neon-border-cyan"), unsafe_allow_html=True)
+            st.markdown(Styles.card_template(f"""
+<span class="kpi-label">⛰️ 총 회원수</span><br>
+<span class="kpi-value">{total_members}</span><br>
+<span class="kpi-trend-up">👥 전체 등록 인원</span>
+""", extra_classes="neon-border-cyan animate-float"), unsafe_allow_html=True)
         with c2:
-            st.markdown(Styles.card_template(f"""<span style="font-size: 15px; color: #b7e4c7 !important; font-weight: bold;">최근 활동 회원</span><br><span style="font-size: 38px; font-weight: bold; color: #ffffff !important;">{active_count}</span>""", extra_classes="neon-border-green"), unsafe_allow_html=True)
+            trend_color = "kpi-trend-up" if active_rate >= 50 else "kpi-trend-down"
+            trend_icon  = "📈" if active_rate >= 50 else "📉"
+            st.markdown(Styles.card_template(f"""
+<span class="kpi-label">🔥 최근 활동 회원</span><br>
+<span class="kpi-value">{active_count}</span><br>
+<span class="{trend_color}">{trend_icon} 활동률 {active_rate}%</span>
+""", extra_classes="neon-border-green"), unsafe_allow_html=True)
         with c3:
-            st.markdown(Styles.card_template(f"""<span style="font-size: 15px; color: #b7e4c7 !important; font-weight: bold;">누적 포인트</span><br><span style="font-size: 38px; font-weight: bold; color: #ffffff !important;">{int(total_activity_score):,}</span>""", extra_classes="neon-border-magenta"), unsafe_allow_html=True)
+            st.markdown(Styles.card_template(f"""
+<span class="kpi-label">🏅 누적 포인트</span><br>
+<span class="kpi-value">{int(total_activity_score):,}</span><br>
+<span class="kpi-trend-up">✨ 전체 획득 포인트</span>
+""", extra_classes="neon-border-magenta"), unsafe_allow_html=True)
         
-        st.markdown("---")
+        st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
         
         # 2. Events & Weather
         c3, c4 = st.columns([1.2, 1])
         
         with c3:
-            st.markdown(f"""<div style="background-color: rgba(0,0,0,0.5); padding: 20px; border-radius: 15px;">""", unsafe_allow_html=True)
-            st.subheader("📅 다가오는 산행")
-            today = datetime.now().strftime("%Y-%m-%d")
-            upcoming = self.analysis.get_upcoming_events()
-            
-            if not upcoming.empty:
-                for _, row in upcoming.iterrows():
-                    d_day = (pd.to_datetime(row['date']) - pd.to_datetime(today)).days
-                    badge = f"D-{d_day}" if d_day > 0 else "D-Day"
-                    badge_color = "#ef4444" if d_day <= 3 else "#3b82f6"
-                    
-                    # 주최자 상세 정보 포맷팅 (생년/이름/지역)
-                    birth = str(int(row['birth_year']))[-2:] if pd.notna(row['birth_year']) else "??"
-                    host_info = f"{birth}/{row['host_name'] or row['host']}/{row['area'] or '미상'}"
-                    
-                    # 프로필 이미지 처리
-                    img_url = row['profile_image_url'] if pd.notna(row['profile_image_url']) and row['profile_image_url'] else "https://ui-avatars.com/api/?name=" + (row['host_name'] or "Host") + "&background=random"
-                    
-                    # 날짜 형식 처리 (시간 정보 제거)
-                    display_date = pd.to_datetime(row['date']).strftime('%Y-%m-%d')
-                    
-                    c = ThemeManager.current.colors
-                    
-                    st.markdown(f"""
-                    <div style="background: {c.card_bg}; border-radius: 12px; margin-bottom: 12px; border: 1px solid {c.border}; display: flex; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: transform 0.3s ease;" class="hover-3d">
-                        <div style="width: 6px; background: {badge_color};"></div>
-                        <div style="flex-grow: 1; padding: 12px; display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                                    <span style="background-color: {badge_color}22; color: {badge_color}; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">{badge}</span>
-                                    <span style="font-weight: bold; font-size: 16px; color: {c.text_primary};">{row['title']}</span>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <img src="{img_url}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 1px solid {c.border};">
-                                    <div style="display: flex; flex-direction: column;">
-                                        <div style="color: {c.text_secondary}; font-size: 13px; font-weight: 500;">📅 {display_date}</div>
-                                        <div style="color: {c.text_secondary}; font-size: 12px; opacity: 0.8;">👑 {host_info}</div>
+            with st.container():
+                st.subheader("📅 다가오는 산행")
+                today = datetime.now().strftime("%Y-%m-%d")
+                upcoming = self.analysis.get_upcoming_events()
+                
+                if not upcoming.empty:
+                    for _, row in upcoming.iterrows():
+                        d_day = (pd.to_datetime(row['date']) - pd.to_datetime(today)).days
+                        badge = f"D-{d_day}" if d_day > 0 else "D-Day"
+                        badge_color = "#ef4444" if d_day <= 3 else "#3b82f6"
+                        badge_class = "badge-dday animate-badge" if d_day <= 3 else ""
+                        
+                        birth = str(int(row['birth_year']))[-2:] if pd.notna(row['birth_year']) else "??"
+                        host_info = f"{birth}/{row['host_name'] or row['host']}/{row['area'] or '미상'}"
+                        img_url = row['profile_image_url'] if pd.notna(row['profile_image_url']) and row['profile_image_url'] else "https://ui-avatars.com/api/?name=" + (row['host_name'] or "Host") + "&background=random"
+                        display_date = pd.to_datetime(row['date']).strftime('%Y-%m-%d')
+                        c = ThemeManager.current.colors
+                        
+                        st.markdown(f"""
+                        <div style="background: {c.card_bg}; border-radius: 14px; margin-bottom: 12px; border: 1px solid {c.border}; display: flex; overflow: hidden; box-shadow: 0 6px 20px rgba(0,0,0,0.15); transition: transform 0.3s ease;" class="hover-3d animate-fadein">
+                            <div style="width: 6px; background: linear-gradient(180deg, {badge_color}, {badge_color}88);"></div>
+                            <div style="flex-grow: 1; padding: 14px; display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                        <span class="{badge_class}" style="background-color: {badge_color}33; color: {badge_color}; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; border: 1px solid {badge_color}55;">{badge}</span>
+                                        <span style="font-weight: bold; font-size: 16px; color: {c.text_primary};">{row['title']}</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <img src="{img_url}" style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid {badge_color}66;">
+                                        <div style="display: flex; flex-direction: column;">
+                                            <div style="color: {c.text_secondary}; font-size: 13px; font-weight: 500;">📅 {display_date}</div>
+                                            <div style="color: {c.text_secondary}; font-size: 12px; opacity: 0.8;">👑 {host_info}</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.info("예정된 산행이 없습니다.")
-            st.markdown("</div>", unsafe_allow_html=True)
-            
-
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("예정된 산행이 없습니다.")
 
         with c4:
-            st.markdown(f"""<div style="background-color: rgba(0,0,0,0.5); padding: 20px; border-radius: 15px;">""", unsafe_allow_html=True)
-            st.subheader("🌤️ 서울 날씨")
-            self._render_weather_forecast()
-            st.markdown("</div>", unsafe_allow_html=True)
+            with st.container():
+                st.subheader("🌤️ 서울 날씨")
+                self._render_weather_forecast()
 
-        # 4. 인포그래픽 (New)
-        st.markdown("---")
+        # 4. 인포그래픽
+        st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
         self._render_infographics()
         
-        # 5. 최근 공지 분석 (Relocated from Demographics)
-        st.markdown("---")
+        # 5. 최근 공지 분석
+        st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
         self._render_event_analysis()
 
     def _render_demographics(self, df_summary):
-        c3, c4 = st.columns(2)
         df_dist = self.db.query("SELECT birth_year, gender FROM members WHERE role<>'exmember'")
-        
-        # [Fix] Define variables at top scope for safety
+
+        # ── 성별 정규화 ───────────────────────────────────────────────
         if not df_dist.empty:
             df_dist['gender_norm'] = df_dist['gender'].astype(str).str.upper().str.strip()
-            # [Translation] Map Gender to Korean
-            gender_map = {'M': '남', 'MALE': '남', 'MAN': '남', '남': '남', '남성': '남', 'F': '여', 'FEMALE': '여', 'WOMAN': '여', 'W': '여', '여': '여', '여성': '여'}
+            gender_map = {
+                'M': '남', 'MALE': '남', 'MAN': '남', '남': '남', '남성': '남',
+                'F': '여', 'FEMALE': '여', 'WOMAN': '여', 'W': '여', '여': '여', '여성': '여'
+            }
             df_dist['gender_final'] = df_dist['gender_norm'].map(gender_map).fillna('U')
-            
             gender_counts = df_dist['gender_final'].value_counts()
-            total = len(df_dist)
-            m_count, f_count, u_count = gender_counts.get('남', 0), gender_counts.get('여', 0), gender_counts.get('U', 0)
+            total   = len(df_dist)
+            m_count = gender_counts.get('남', 0)
+            f_count = gender_counts.get('여', 0)
+            u_count = gender_counts.get('U', 0)
         else:
-            total, m_count, f_count, u_count = 0, 0, 0, 0
+            total = m_count = f_count = u_count = 0
 
         if not df_dist.empty:
             st.markdown("### 📊 회원 구성 및 성장 (Composition & Growth)")
-            
-            # [Data Prep for Treemap]
-            # [Translation] Age Group Suffix
-            df_dist['age_group'] = (df_dist['birth_year'] // 10 * 10).astype(str) + "년대생"
-            # [Refinement 2] Group by Age Group + Birth Year + Gender
-            df_tree = df_dist.groupby(['age_group', 'birth_year', 'gender_final']).size().reset_index(name='count')
-            
-            # [Chart 1] Generation Treemap
-            c_tree, c_growth = st.columns([1.2, 1])
-            
-            with c_tree:
-                st.markdown("###### 👨‍👩‍👧‍👦 세대/생년별 분포 (By Birth Year)")
-                fig_tree = px.treemap(
-                    df_tree, path=['age_group', 'birth_year', 'gender_final'], values='count',
-                    color='gender_final',
-                    color_discrete_map={'남': '#3b82f6', '여': '#ec4899', 'U': '#94a3b8'},
-                    title=None
-                )
-                fig_tree.update_traces(
-                    hovertemplate='<b>%{label}</b><br>인원: %{value}명<br>비율: %{percentParent:.1%}',
-                    textinfo="label+value",
-                    marker=dict(cornerradius=5)
-                )
-                fig_tree.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font=dict(color='white', family="Inter"),
-                    margin=dict(t=0, l=0, r=0, b=0),
-                    height=300
-                )
-                st.plotly_chart(fig_tree, use_container_width=True)
 
-            # [Chart 2] Member Growth Trend (Changed to New Member Influx)
-            with c_growth:
-                st.markdown("###### 📉 신규 회원 유입 추이 (New Member Influx)")
-                df_growth = self.analysis.get_member_growth_trend()
-                if not df_growth.empty:
-                    fig_growth = px.line(
-                        df_growth, x='month', y='new_members',
-                        markers=True,
-                        line_shape='spline'
-                    )
-                    fig_growth.update_traces(
-                        line_color='#4ade80',  # Bright Green
-                        line_width=3,
-                        marker=dict(size=6, color='#22c55e', line=dict(width=2, color='white'))
-                    )
-                    fig_growth.update_layout(
+            # ── 성별 요약 스탯 카드 ───────────────────────────────────
+            m_pct = round(m_count / total * 100) if total else 0
+            f_pct = round(f_count / total * 100) if total else 0
+            u_pct = 100 - m_pct - f_pct
+
+            st.markdown(f"""
+<div style="display:flex; gap:12px; margin-bottom:20px;">
+  <div style="flex:1; background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(59,130,246,0.04));
+              border:1px solid rgba(59,130,246,0.4); border-radius:16px; padding:16px; text-align:center;">
+    <div style="font-size:30px; font-weight:800; color:#60a5fa; letter-spacing:-1px;">♂ {m_count}</div>
+    <div style="font-size:11px; color:#93c5fd; margin-top:5px; letter-spacing:2px; text-transform:uppercase;">남성 · {m_pct}%</div>
+    <div style="background:rgba(59,130,246,0.2); border-radius:4px; height:5px; margin-top:10px;">
+      <div style="background:linear-gradient(90deg,#3b82f6,#60a5fa); width:{m_pct}%; height:100%; border-radius:4px; transition:width 1s;"></div></div>
+  </div>
+  <div style="flex:1; background:linear-gradient(135deg,rgba(236,72,153,0.18),rgba(236,72,153,0.04));
+              border:1px solid rgba(236,72,153,0.4); border-radius:16px; padding:16px; text-align:center;">
+    <div style="font-size:30px; font-weight:800; color:#f472b6; letter-spacing:-1px;">♀ {f_count}</div>
+    <div style="font-size:11px; color:#f9a8d4; margin-top:5px; letter-spacing:2px; text-transform:uppercase;">여성 · {f_pct}%</div>
+    <div style="background:rgba(236,72,153,0.2); border-radius:4px; height:5px; margin-top:10px;">
+      <div style="background:linear-gradient(90deg,#ec4899,#f472b6); width:{f_pct}%; height:100%; border-radius:4px;"></div></div>
+  </div>
+  <div style="flex:1; background:linear-gradient(135deg,rgba(148,163,184,0.12),rgba(148,163,184,0.02));
+              border:1px solid rgba(148,163,184,0.25); border-radius:16px; padding:16px; text-align:center;">
+    <div style="font-size:30px; font-weight:800; color:#cbd5e1; letter-spacing:-1px;">? {u_count}</div>
+    <div style="font-size:11px; color:#94a3b8; margin-top:5px; letter-spacing:2px; text-transform:uppercase;">미확인 · {u_pct}%</div>
+    <div style="background:rgba(148,163,184,0.15); border-radius:4px; height:5px; margin-top:10px;">
+      <div style="background:#64748b; width:{u_pct}%; height:100%; border-radius:4px;"></div></div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            # ── 나비형 성별 피라미드 + 신규 유입 추이 ─────────────────
+            c_pyramid, c_growth = st.columns([1.3, 1])
+
+            with c_pyramid:
+                st.markdown("###### 🦋 생년별 성별 피라미드 (Gender Pyramid by Birth Year)")
+                try:
+                    import plotly.graph_objects as go
+
+                    df_py  = df_dist.groupby(['birth_year', 'gender_final']).size().reset_index(name='cnt')
+                    years  = sorted(df_py['birth_year'].dropna().unique())
+
+                    # 2자리 생년 그대로 표시 (70, 71...)
+                    yr_lbl = [str(int(y)) for y in years]
+
+                    male_v, female_v, unk_v = [], [], []
+                    for yr in years:
+                        sub = df_py[df_py['birth_year'] == yr]
+                        male_v.append(  int(sub.loc[sub['gender_final'] == '남', 'cnt'].sum()))
+                        female_v.append(int(sub.loc[sub['gender_final'] == '여', 'cnt'].sum()))
+                        unk_v.append(   int(sub.loc[sub['gender_final'] == 'U',  'cnt'].sum()))
+
+                    max_val = max(max(male_v or [1]), max(female_v or [1])) + 1
+                    chart_h = max(400, len(years) * 50 + 100)
+
+                    fig_pyr = go.Figure()
+
+                    # ── 남성 (왼쪽, 음수) ──
+                    fig_pyr.add_trace(go.Bar(
+                        y=yr_lbl, x=[-v for v in male_v],
+                        name='♂ 남성', orientation='h',
+                        marker=dict(
+                            color=[f'rgba(59,130,246,{0.45 + 0.55 * v / (max_val or 1):.2f})' for v in male_v],
+                            line=dict(color='#3b82f6', width=1.2)
+                        ),
+                        text=[f' {v}명' if v > 0 else '' for v in male_v],
+                        textposition='inside',
+                        textfont=dict(color='white', size=12, family='Noto Sans KR'),
+                        hovertemplate='<b>%{y}년생</b><br>♂ 남성: %{customdata}명<extra></extra>',
+                        customdata=male_v
+                    ))
+
+                    # ── 여성 (오른쪽, 양수) ──
+                    fig_pyr.add_trace(go.Bar(
+                        y=yr_lbl, x=female_v,
+                        name='♀ 여성', orientation='h',
+                        marker=dict(
+                            color=[f'rgba(236,72,153,{0.45 + 0.55 * v / (max_val or 1):.2f})' for v in female_v],
+                            line=dict(color='#ec4899', width=1.2)
+                        ),
+                        text=[f'{v}명 ' if v > 0 else '' for v in female_v],
+                        textposition='inside',
+                        textfont=dict(color='white', size=12, family='Noto Sans KR'),
+                        hovertemplate='<b>%{y}년생</b><br>♀ 여성: %{x}명<extra></extra>'
+                    ))
+
+                    # ── 미확인 (오른쪽 누적) ──
+                    if any(v > 0 for v in unk_v):
+                        fig_pyr.add_trace(go.Bar(
+                            y=yr_lbl, x=unk_v,
+                            name='? 미확인', orientation='h',
+                            marker=dict(color='rgba(100,116,139,0.45)', line=dict(color='#475569', width=1)),
+                            text=[f'{v}명' if v > 0 else '' for v in unk_v],
+                            textposition='inside',
+                            textfont=dict(color='#cbd5e1', size=10),
+                            hovertemplate='<b>%{y}년생</b><br>? 미확인: %{x}명<extra></extra>'
+                        ))
+
+                    fig_pyr.update_layout(
+                        barmode='relative',
                         paper_bgcolor='rgba(0,0,0,0)',
                         plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color='white'),
-                        xaxis=dict(showgrid=False, title=None, tickfont=dict(color='#aaa')),
-                        yaxis=dict(gridcolor='rgba(255,255,255,0.1)', title=None, tickfont=dict(color='#aaa')),
-                        margin=dict(t=20, l=10, r=10, b=10),
-                        height=280,
-                        hovermode="x unified"
+                        font=dict(color='white', family='Noto Sans KR'),
+                        xaxis=dict(
+                            range=[-(max_val + 0.5), max_val + 0.5],
+                            showgrid=True,
+                            gridcolor='rgba(255,255,255,0.05)',
+                            zeroline=True,
+                            zerolinecolor='rgba(255,255,255,0.30)',
+                            zerolinewidth=2,
+                            tickvals=list(range(-max_val, max_val + 1)),
+                            ticktext=[str(abs(v)) for v in range(-max_val, max_val + 1)],
+                            tickfont=dict(color='#64748b', size=10),
+                            title=None,
+                        ),
+                        yaxis=dict(
+                            showgrid=False,
+                            # 모든 연도 레이블 강제 표시
+                            tickmode='array',
+                            tickvals=yr_lbl,
+                            ticktext=yr_lbl,
+                            tickfont=dict(color='#e2e8f0', size=13, family='Noto Sans KR'),
+                            title=None,
+                            automargin=True,
+                            categoryorder='array',
+                            categoryarray=list(reversed(yr_lbl)),
+                        ),
+                        legend=dict(
+                            orientation='h', yanchor='bottom', y=1.02,
+                            xanchor='center', x=0.5,
+                            font=dict(size=12, color='white'),
+                            bgcolor='rgba(0,0,0,0)'
+                        ),
+                        height=chart_h,
+                        margin=dict(t=50, b=20, l=10, r=10),
+                        bargap=0.28,
+                        hoverlabel=dict(bgcolor='rgba(10,15,30,0.92)', font_size=13, font_color='white')
                     )
-                    # Add Gradient Area (Manual update using graph_objects features exposed via update_traces not fully flexible in px, so simple line is safe)
-                    st.plotly_chart(fig_growth, use_container_width=True)
+                    st.plotly_chart(fig_pyr, use_container_width=True, config={
+                        'displayModeBar': False,
+                        'scrollZoom': False
+                    })
+
+                except Exception as e:
+                    st.error(f"Gender Pyramid Error: {e}")
+
+            # ── 신규 회원 유입 추이 (area fill 강화) ─────────────────
+            with c_growth:
+                st.markdown("###### 📈 신규 회원 유입 추이 (New Member Influx)")
+                df_growth = self.analysis.get_member_growth_trend()
+                if not df_growth.empty:
+                    try:
+                        import plotly.graph_objects as go
+                        months_g = df_growth['month'].astype(str).tolist()
+                        vals_g   = df_growth['new_members'].tolist()
+                        chart_h2 = max(340, len(years) * 42) if years else 340
+
+                        fig_growth = go.Figure()
+                        fig_growth.add_trace(go.Scatter(
+                            x=months_g, y=vals_g,
+                            fill='tozeroy',
+                            fillcolor='rgba(46,204,113,0.10)',
+                            line=dict(color='#2ecc71', width=3, shape='spline'),
+                            mode='lines+markers',
+                            marker=dict(size=8, color='#2ecc71', line=dict(width=2, color='white')),
+                            hovertemplate='<b>%{x}</b><br>신규: %{y}명<extra></extra>'
+                        ))
+                        fig_growth.update_layout(
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            font=dict(color='white', family='Noto Sans KR'),
+                            xaxis=dict(showgrid=False, title=None,
+                                       tickfont=dict(color='#64748b', size=10), tickangle=-35),
+                            yaxis=dict(gridcolor='rgba(255,255,255,0.06)', title=None,
+                                       tickfont=dict(color='#64748b')),
+                            margin=dict(t=44, l=10, r=10, b=40),
+                            height=chart_h2,
+                            hovermode='x unified',
+                            showlegend=False,
+                            hoverlabel=dict(bgcolor='rgba(10,15,30,0.92)', font_size=13)
+                        )
+                        st.plotly_chart(fig_growth, use_container_width=True, config={'displayModeBar': False})
+                    except Exception as e:
+                        st.error(f"Growth Chart Error: {e}")
                 else:
                     st.info("데이터 부족")
-
-
-        # [Removed Legacy Gender Pie - Integrated into Treemap]
-
-
-            
-
 
         st.divider()
         
@@ -397,6 +524,41 @@ class HomePage:
 
 
 
+    def _render_podium(self, df, value_col, unit="", img_col="profile_image_url"):
+        """Render a top-3 podium visualization."""
+        podium_colors  = ["#FFD700", "#C0C0C0", "#CD7F32"]
+        podium_heights = ["130px", "100px", "80px"]
+        podium_order   = [1, 0, 2]  # display: 2nd, 1st, 3rd
+        medals         = ["🥇", "🥈", "🥉"]
+        rows = df.head(3).reset_index(drop=True)
+        if rows.empty:
+            return
+        # pad to 3
+        while len(rows) < 3:
+            rows = rows._append({"name": "—", value_col: 0, img_col: None}, ignore_index=True)
+
+        html = '<div class="podium-container">'
+        for display_pos, rank in enumerate(podium_order):
+            if rank >= len(rows): continue
+            row = rows.iloc[rank]
+            color  = podium_colors[rank]
+            height = podium_heights[rank]
+            medal  = medals[rank]
+            name   = row.get('name', '—')
+            val    = row.get(value_col, 0)
+            img_url = row.get(img_col, None)
+            if not img_url or str(img_url) == 'nan':
+                img_url = f"https://ui-avatars.com/api/?name={name}&background=random&size=80"
+            html += f"""
+            <div class="podium-block" style="background: linear-gradient(180deg, {color}22, {color}11); border: 1.5px solid {color}66; height: {height}; justify-content: flex-end; padding-bottom: 10px;">
+                <img src="{img_url}" style="width:44px;height:44px;border-radius:50%;border:2px solid {color};margin-bottom:6px;">
+                <div style="font-size:20px;">{medal}</div>
+                <div style="font-weight:bold;color:#fff;font-size:14px;">{name}</div>
+                <div style="color:{color};font-size:13px;font-weight:700;">{int(val)}{unit}</div>
+            </div>"""
+        html += "</div>"
+        st.markdown(html, unsafe_allow_html=True)
+
     def _render_hall_of_fame(self, df_summary, active_members):
         now = datetime.now(Config.KST)
         cur_month_str = now.strftime('%Y-%m')
@@ -439,10 +601,10 @@ class HomePage:
             st.markdown("##### 📣 이달의 공지왕")
             try:
                 if not df_host.empty:
+                    self._render_podium(df_host, value_col='cnt', unit='회')
+                    st.markdown("---")
                     for idx, row in df_host.iterrows():
                         st.markdown(get_rank_html(idx, row['name'], f"{row['cnt']}회", row['profile_image_url']), unsafe_allow_html=True)
-                    
-                    # Add to clip text
                     names = [f"{r['name']}({r['cnt']}회)" for _, r in df_host.iterrows()]
                     clip_hall_lines.append(f"- 📣 공지왕: {', '.join(names)}")
                 else:
@@ -454,10 +616,10 @@ class HomePage:
             st.markdown("##### 🏃 이달의 참석왕")
             try:
                 if not df_attend.empty:
+                    self._render_podium(df_attend, value_col='score', unit='점')
+                    st.markdown("---")
                     for idx, row in df_attend.iterrows():
                         st.markdown(get_rank_html(idx, row['name'], f"{int(row['score'])}점", row['profile_image_url']), unsafe_allow_html=True)
-                    
-                    # Add to clip text
                     names = [f"{r['name']}({int(r['score'])}점)" for _, r in df_attend.iterrows()]
                     clip_hall_lines.append(f"- 🏃 참석왕: {', '.join(names)}")
                 else:
@@ -663,9 +825,14 @@ class HomePage:
             except Exception as e:
                 st.error(f"Seasonality Chart Error: {e}")
 
-        st.markdown("---")
+        st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
         
-        # 3. Participation Timing (Conversion Speed) - New Infographic
+        # 3. Monthly Bubble Timeline — NEW
+        self._render_monthly_bubble_timeline()
+
+        st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
+
+        # 4. Participation Timing (Conversion Speed)
         st.subheader("⚡ 골든 타임 (Golden Time)")
         c3, c4 = st.columns([1, 2])
         
@@ -710,6 +877,245 @@ class HomePage:
                     st.info("📉 데이터 분석 중...")
             except Exception as e:
                 st.error(f"Timing Error: {e}")
+
+        st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
+
+        # 5. 요일별 산행 레이더 + 생년별 참여율 ─────────────────────────
+        st.subheader("📡 요일별 산행 패턴 & 생년별 참여율")
+        c5, c6 = st.columns(2)
+
+        with c5:
+            try:
+                import plotly.graph_objects as go
+                df_dow = self.analysis.get_event_weekday_stats()
+                if not df_dow.empty:
+                    day_order = ['월','화','수','목','금','토','일']
+                    dow_map   = {'0':'일','1':'월','2':'화','3':'수','4':'목','5':'금','6':'토'}
+                    df_dow['day_name'] = df_dow['dow_num'].astype(str).map(dow_map)
+                    # full week fill
+                    base = pd.DataFrame({'day_name': day_order})
+                    df_dow = base.merge(df_dow[['day_name','cnt']], on='day_name', how='left').fillna(0)
+                    vals = df_dow['cnt'].tolist()
+                    vals += [vals[0]]  # close the loop
+                    cats = day_order + [day_order[0]]
+
+                    fig_dow = go.Figure(go.Scatterpolar(
+                        r=vals, theta=cats,
+                        fill='toself',
+                        fillcolor='rgba(46,204,113,0.20)',
+                        line=dict(color='#2ecc71', width=2.5),
+                        marker=dict(size=8, color='#2ecc71', line=dict(width=2, color='white')),
+                        hovertemplate='<b>%{theta}</b>요일<br>산행: %{r}회<extra></extra>'
+                    ))
+                    fig_dow.update_layout(
+                        polar=dict(
+                            bgcolor='rgba(0,0,0,0)',
+                            radialaxis=dict(visible=True, showticklabels=True,
+                                            tickfont=dict(color='#94a3b8', size=10),
+                                            gridcolor='rgba(255,255,255,0.1)'),
+                            angularaxis=dict(tickfont=dict(color='#e2e8f0', size=13, family='Noto Sans KR'),
+                                             gridcolor='rgba(255,255,255,0.1)')
+                        ),
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='white', family='Noto Sans KR'),
+                        showlegend=False,
+                        height=300,
+                        margin=dict(t=30, b=30, l=30, r=30)
+                    )
+                    st.markdown("###### 🗓️ 요일별 산행 빈도 (레이더)")
+                    st.plotly_chart(fig_dow, use_container_width=True, config={'displayModeBar': False})
+                else:
+                    st.info("데이터 부족")
+            except Exception as e:
+                st.error(f"Weekday Chart Error: {e}")
+
+        with c6:
+            try:
+                import plotly.graph_objects as go
+                cur_month_str = datetime.now().strftime('%Y-%m')
+
+                # 이번 달 생년별 실제 참가 인원
+                df_m = self.analysis.get_monthly_attend_by_birth(cur_month_str)
+
+                # 생년별 전체 회원 수
+                df_total = self.db.query(
+                    "SELECT birth_year, COUNT(*) as total FROM members WHERE role<>'exmember' GROUP BY birth_year"
+                )
+
+                if not df_m.empty and not df_total.empty:
+                    df_m['birth_year_n'] = df_m['birth_year'].astype(int)
+                    df_total['birth_year_n'] = df_total['birth_year'].astype(int)
+                    df_merged = df_m.merge(df_total[['birth_year_n','total']], on='birth_year_n', how='left').fillna(1)
+                    df_merged['rate'] = (df_merged['cnt'] / df_merged['total'] * 100).round(1)
+                    df_merged['label'] = df_merged['birth_year_n'].astype(str).str[-2:] + "년생"
+                    df_merged = df_merged.sort_values('birth_year_n')
+
+                    colors = [
+                        f'rgba(46,204,113,{max(0.15, 0.15 + 0.85 * r/100):.2f})'
+                        for r in df_merged['rate']
+                    ]
+                    hover = [
+                        f"{r['label']}<br>{int(r['cnt'])}명 / {int(r['total'])}명 = {r['rate']:.1f}%"
+                        for _, r in df_merged.iterrows()
+                    ]
+
+                    fig_part = go.Figure(go.Bar(
+                        y=df_merged['label'],
+                        x=df_merged['rate'],
+                        orientation='h',
+                        marker=dict(color=colors, line=dict(color='#2ecc71', width=0.8)),
+                        text=[f"{r:.0f}%" if r > 0 else "" for r in df_merged['rate']],
+                        textposition='outside',
+                        textfont=dict(color='#e2e8f0', size=11),
+                        customdata=hover,
+                        hovertemplate='%{customdata}<extra></extra>'
+                    ))
+                    fig_part.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='white', family='Noto Sans KR'),
+                        xaxis=dict(range=[0, 115], showgrid=True,
+                                   gridcolor='rgba(255,255,255,0.05)', title=None,
+                                   ticksuffix='%', tickfont=dict(color='#64748b', size=10)),
+                        yaxis=dict(showgrid=False, automargin=True,
+                                   tickfont=dict(color='#e2e8f0', size=12),
+                                   categoryorder='array',
+                                   categoryarray=df_merged['label'].tolist()),
+                        height=300,
+                        margin=dict(t=30, b=10, l=10, r=30),
+                        hoverlabel=dict(bgcolor='rgba(10,15,30,0.9)', font_size=13)
+                    )
+                    st.markdown(f"###### 🎯 {cur_month_str} 생년별 참가율 (이번 달)")
+                    st.plotly_chart(fig_part, use_container_width=True, config={'displayModeBar': False})
+                else:
+                    st.info("이번 달 참가 데이터 없음")
+            except Exception as e:
+                st.error(f"Monthly Participation Error: {e}")
+
+        st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
+
+        # 6. 이벤트 스코어 Top-10 랭킹 ────────────────────────────────
+        st.subheader("🏅 산행 스코어 TOP 10 (Event Score Ranking)")
+        try:
+            import plotly.graph_objects as go
+            df_top = self.db.query("""
+                SELECT e.title,
+                       e.score,
+                       COUNT(a.user_no) as attendees,
+                       e.score * COUNT(a.user_no) as total_score,
+                       strftime('%Y-%m', e.date) as month
+                FROM events e
+                JOIN attendees a ON e.event_id = a.event_id
+                GROUP BY e.event_id, e.title, e.score, e.date
+                ORDER BY total_score DESC
+                LIMIT 10
+            """)
+            if not df_top.empty:
+                df_top = df_top.sort_values('total_score')  # ascending for horizontal bar
+                labels = [f"{row['title'][:18]}…" if len(row['title']) > 18 else row['title']
+                          for _, row in df_top.iterrows()]
+                hover  = [f"{row['title']}<br>참가: {int(row['attendees'])}명 × {int(row['score'])}점 = {int(row['total_score'])}점<br>({row['month']})"
+                          for _, row in df_top.iterrows()]
+
+                bar_colors = [f'rgba(46,204,113,{0.35 + 0.65 * i / (len(df_top)-1 or 1):.2f})'
+                              for i in range(len(df_top))]
+
+                fig_top = go.Figure(go.Bar(
+                    y=labels,
+                    x=df_top['total_score'].tolist(),
+                    orientation='h',
+                    marker=dict(color=bar_colors, line=dict(color='#2ecc71', width=0.8)),
+                    text=[f"  {int(v)}점" for v in df_top['total_score']],
+                    textposition='outside',
+                    textfont=dict(color='#e2e8f0', size=11),
+                    customdata=hover,
+                    hovertemplate='%{customdata}<extra></extra>'
+                ))
+                fig_top.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='white', family='Noto Sans KR'),
+                    xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)',
+                               title=None, tickfont=dict(color='#64748b', size=10)),
+                    yaxis=dict(showgrid=False, automargin=True,
+                               tickfont=dict(color='#e2e8f0', size=12)),
+                    height=420,
+                    margin=dict(t=20, b=20, l=10, r=60),
+                    hoverlabel=dict(bgcolor='rgba(10,15,30,0.9)', font_size=13)
+                )
+                st.plotly_chart(fig_top, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.info("데이터 부족")
+        except Exception as e:
+            st.error(f"Top10 Chart Error: {e}")
+
+    def _render_monthly_bubble_timeline(self):
+        """월별 산행 활동 버블 타임라인 (x=month, y=events, size=attendance)"""
+        st.subheader("📅 월별 활동 버블 타임라인")
+        try:
+            df_trend, _ = self.analysis.get_event_analysis()
+            if df_trend.empty:
+                st.info("데이터 부족")
+                return
+
+            import plotly.graph_objects as go
+            c = ThemeManager.current.colors
+
+            months = df_trend['month'].astype(str).tolist()
+            counts = df_trend['count'].tolist()
+            max_c  = max(counts) if counts else 1
+
+            fig = go.Figure()
+            for i, (month, cnt) in enumerate(zip(months, counts)):
+                color_intensity = int(80 + 175 * (cnt / max_c))
+                bubble_color = f"rgba(46, 204, 113, {0.3 + 0.7 * cnt / max_c:.2f})"
+                fig.add_trace(go.Scatter(
+                    x=[month],
+                    y=[cnt],
+                    mode='markers+text',
+                    marker=dict(
+                        size=max(25, int(20 + 50 * cnt / max_c)),
+                        color=bubble_color,
+                        line=dict(width=2, color='rgba(46, 204, 113, 0.9)'),
+                        opacity=0.85
+                    ),
+                    text=[str(cnt)],
+                    textposition='middle center',
+                    textfont=dict(color='white', size=13, family='Noto Sans KR'),
+                    hovertemplate=f"<b>{month}</b><br>산행 횟수: {cnt}회<extra></extra>",
+                    showlegend=False
+                ))
+
+            # Connect with line
+            fig.add_trace(go.Scatter(
+                x=months, y=counts,
+                mode='lines',
+                line=dict(color='rgba(46, 204, 113, 0.3)', width=2, dash='dot'),
+                showlegend=False,
+                hoverinfo='skip'
+            ))
+
+            fig.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='white', family='Noto Sans KR'),
+                xaxis=dict(
+                    showgrid=False, title=None,
+                    tickfont=dict(color='#aaa', size=12),
+                    tickangle=-30
+                ),
+                yaxis=dict(
+                    showgrid=True, gridcolor='rgba(255,255,255,0.05)',
+                    title=dict(text='산행 횟수', font=dict(color='#aaa', size=12)),
+                    tickfont=dict(color='#aaa')
+                ),
+                height=320,
+                margin=dict(t=20, b=40, l=40, r=20),
+                hovermode='x'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.error(f"Bubble Timeline Error: {e}")
 
     def _render_weather_forecast(self):
         try:

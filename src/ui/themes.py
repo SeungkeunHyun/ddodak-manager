@@ -24,40 +24,39 @@ class Theme:
 
 # --- DEFINED THEMES ---
 
-# 1. Nature & Green (Comfortable High Contrast)
 import random
 
 def get_random_korean_mountain():
-    # Korean Mountains: Seoraksan, Hallasan, Jirisan, Bukhansan (Wikimedia Commons High-Res)
     mountains = [
-        "https://upload.wikimedia.org/wikipedia/commons/e/e0/Ulsanbawi_Seoraksan_Korea.JPG", # Seoraksan
-        "https://upload.wikimedia.org/wikipedia/commons/5/52/Hallasan_Baengnokdam.jpg",    # Hallasan
-        "https://upload.wikimedia.org/wikipedia/commons/1/13/Bukhansan_National_Park.jpg", # Bukhansan
-        "https://upload.wikimedia.org/wikipedia/commons/0/07/Jirisan_Cheonwangbong_Peak.jpg", # Jirisan
-        "https://upload.wikimedia.org/wikipedia/commons/9/91/Naejangsan_National_Park.jpg" # Naejangsan
+        "https://upload.wikimedia.org/wikipedia/commons/e/e0/Ulsanbawi_Seoraksan_Korea.JPG",
+        "https://upload.wikimedia.org/wikipedia/commons/5/52/Hallasan_Baengnokdam.jpg",
+        "https://upload.wikimedia.org/wikipedia/commons/1/13/Bukhansan_National_Park.jpg",
+        "https://upload.wikimedia.org/wikipedia/commons/0/07/Jirisan_Cheonwangbong_Peak.jpg",
+        "https://upload.wikimedia.org/wikipedia/commons/9/91/Naejangsan_National_Park.jpg"
     ]
     return random.choice(mountains)
 
+# 1. Nature & Green — v5.0 Enhanced Palette
 NatureTheme = Theme(
     name="Nature",
     colors=ThemeColors(
-        primary="#5A7D65",       # Desaturated Sage Green
-        primary_gradient="linear-gradient(135deg, #4A6356 0%, #5A7D65 100%)",
-        secondary="#9DB5A4",     # Soft Grayish Green
-        accent="#B09B6B",        # Muted Gold
-        background="#1C211E",    # Desaturated Dark Gray-Green
-        card_bg="rgba(35, 40, 38, 0.7)", # More Neutral Dark
-        text_primary="#f0f2f1",  
-        text_secondary="#aeb5b2", 
-        border="rgba(255, 255, 255, 0.08)", 
-        chart_colors=["#6B8E7D", "#9DB5A4", "#4A6356", "#2F3B36"]
+        primary="#2ecc71",          # Vivid Emerald Green
+        primary_gradient="linear-gradient(135deg, #27ae60 0%, #2ecc71 60%, #1abc9c 100%)",
+        secondary="#1abc9c",        # Turquoise
+        accent="#f39c12",           # Warm Amber
+        background="#141c18",       # Deep Forest Dark
+        card_bg="rgba(30, 45, 38, 0.75)",  # Richer green-dark glass
+        text_primary="#eaf7f0",     # Soft white-green
+        text_secondary="#8fb8a0",   # Muted sage
+        border="rgba(46, 204, 113, 0.15)",  # Subtle green border
+        chart_colors=["#2ecc71", "#1abc9c", "#3498db", "#9b59b6", "#f39c12", "#e74c3c"]
     ),
     font_header="Noto Sans KR",
     font_body="Noto Sans KR",
     bg_image_url="RANDOM_KOREAN_MOUNTAIN"
 )
 
-# 2. Cyberpunk/Dark (Previous v4.7)
+# 2. Cyberpunk/Dark
 CyberTheme = Theme(
     name="Cyber",
     colors=ThemeColors(
@@ -70,7 +69,7 @@ CyberTheme = Theme(
         text_primary="#ffffff",
         text_secondary="#cbd5e1",
         border="rgba(255, 255, 255, 0.1)",
-        chart_colors=["#06b6d4", "#8b5cf6", "#ec4899"]
+        chart_colors=["#06b6d4", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#3b82f6"]
     ),
     font_header="Orbitron",
     font_body="Outfit"
