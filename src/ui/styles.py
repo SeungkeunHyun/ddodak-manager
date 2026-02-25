@@ -91,12 +91,61 @@ class Styles:
                 border-left: 1px solid rgba(255, 255, 255, 0.2) !important;
                 border-radius: 20px !important;
                 padding: 24px !important;
-                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+                min-height: 130px !important;
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.10) !important;
                 transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
                 color: {c.text_primary} !important;
                 animation: fadeInUp 0.5s ease forwards;
             }}
             .glass-card * {{ color: inherit !important; }}
+
+            /* Chart Section Title */
+            .chart-title {{
+                font-size: 13px !important;
+                font-weight: 700 !important;
+                letter-spacing: 1.8px !important;
+                text-transform: uppercase !important;
+                color: {c.text_secondary} !important;
+                margin: 0 0 10px 0 !important;
+                opacity: 0.92 !important;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }}
+
+            /* Insight Context Card */
+            .insight-card {{
+                background: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.1);
+                border-left: 4px solid {c.accent};
+                border-radius: 14px;
+                padding: 22px 24px;
+                line-height: 1.8;
+            }}
+            .insight-card .highlight {{
+                color: {c.secondary};
+                font-weight: 700;
+            }}
+            .insight-card .title {{
+                font-size: 17px;
+                font-weight: 700;
+                color: {c.accent};
+                margin-bottom: 10px;
+                display: block;
+            }}
+
+            /* Stat Badge */
+            .stat-badge {{
+                display: inline-block;
+                padding: 3px 12px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: 0.5px;
+                background: rgba(46,204,113,0.15);
+                color: {c.primary};
+                border: 1px solid rgba(46,204,113,0.3);
+            }}
 
             /* KPI Value Style */
             .kpi-value {{
@@ -129,8 +178,8 @@ class Styles:
 
             /* 3D Hover Effect */
             .hover-3d:hover {{
-                transform: translateY(-5px);
-                box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25) !important;
+                transform: translateY(-6px) scale(1.01);
+                box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35) !important;
                 border-color: {c.primary} !important;
             }}
 

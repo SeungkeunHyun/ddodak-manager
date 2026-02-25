@@ -91,7 +91,7 @@ class HomePage:
 <span class="kpi-label">⛰️ 총 회원수</span><br>
 <span class="kpi-value">{total_members}</span><br>
 <span class="kpi-trend-up">👥 전체 등록 인원</span>
-""", extra_classes="neon-border-cyan animate-float"), unsafe_allow_html=True)
+""", extra_classes="neon-border-cyan animate-fadein"), unsafe_allow_html=True)
         with c2:
             trend_color = "kpi-trend-up" if active_rate >= 50 else "kpi-trend-down"
             trend_icon  = "📈" if active_rate >= 50 else "📉"
@@ -99,13 +99,13 @@ class HomePage:
 <span class="kpi-label">🔥 최근 활동 회원</span><br>
 <span class="kpi-value">{active_count}</span><br>
 <span class="{trend_color}">{trend_icon} 활동률 {active_rate}%</span>
-""", extra_classes="neon-border-green"), unsafe_allow_html=True)
+""", extra_classes="neon-border-green animate-fadein"), unsafe_allow_html=True)
         with c3:
             st.markdown(Styles.card_template(f"""
 <span class="kpi-label">🏅 누적 포인트</span><br>
 <span class="kpi-value">{int(total_activity_score):,}</span><br>
 <span class="kpi-trend-up">✨ 전체 획득 포인트</span>
-""", extra_classes="neon-border-magenta"), unsafe_allow_html=True)
+""", extra_classes="neon-border-magenta animate-fadein"), unsafe_allow_html=True)
         
         st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
         
@@ -755,7 +755,7 @@ class HomePage:
                         df_seg, values='count', names='status_ko',
                         color='status_ko',
                         color_discrete_map=colors,
-                        hole=0.6,
+                        hole=0.62,
                         title=None
                     )
                     
@@ -764,18 +764,31 @@ class HomePage:
                     active_rate = (total_act / df_seg['count'].sum() * 100)
                     
                     fig_seg.update_traces(
-                        textinfo='percent+label',
+                        textinfo='percent',
                         textposition='outside',
-                        marker=dict(line=dict(color='#0e1117', width=4))
+                        textfont=dict(size=13),
+                        marker=dict(line=dict(color='#0e1117', width=5)),
+                        pull=[0.03] * len(df_seg)
                     )
                     fig_seg.update_layout(
                         paper_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color='white'),
-                        showlegend=False,
-                        height=280,
-                        annotations=[dict(text=f"{int(active_rate)}%<br>활동중", x=0.5, y=0.5, font_size=20, showarrow=False, font_color='white')]
+                        font=dict(color='white', family='Noto Sans KR'),
+                        showlegend=True,
+                        legend=dict(
+                            orientation='h', yanchor='bottom', y=-0.25,
+                            xanchor='center', x=0.5,
+                            font=dict(size=11, color='#cbd5e1'),
+                            bgcolor='rgba(0,0,0,0)'
+                        ),
+                        height=350,
+                        margin=dict(t=20, b=60, l=20, r=20),
+                        annotations=[dict(
+                            text=f"<b>{int(active_rate)}%</b><br><span style='font-size:12px'>활동중</span>",
+                            x=0.5, y=0.5, font_size=24, showarrow=False,
+                            font_color='white', align='center'
+                        )]
                     )
-                    st.markdown("###### 🏃 활동 회원 비율 (Activity Rate)")
+                    st.markdown("<p class='chart-title'>🏃 활동 회원 비율 (Activity Rate)</p>", unsafe_allow_html=True)
                     st.plotly_chart(fig_seg, use_container_width=True)
                 else:
                     st.info("데이터 부족")
@@ -800,25 +813,28 @@ class HomePage:
                     fig_sea = px.bar(
                         df_season, x='season_ko', y='cnt',
                         color='season_ko',
-                        # Fallback colors if season names don't match exactly, usually handled by discrete map if needed
                         color_discrete_map={'🌸 봄': '#f472b6', '☀️ 여름': '#22c55e', '🍂 가을': '#fb923c', '❄️ 겨울': '#60a5fa'},
                         text='cnt'
                     )
                     fig_sea.update_traces(
                         textposition='outside',
-                        marker_line_width=0
+                        textfont=dict(size=14, color='white'),
+                        marker_line_width=0,
+                        width=0.55
                     )
                     fig_sea.update_layout(
                         paper_bgcolor='rgba(0,0,0,0)',
                         plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color='white'),
-                        xaxis=dict(title=None, showgrid=False),
-                        yaxis=dict(title=None, showgrid=True, gridcolor='rgba(255,255,255,0.1)'),
-                        height=280,
+                        font=dict(color='white', family='Noto Sans KR'),
+                        xaxis=dict(title=None, showgrid=False, tickfont=dict(size=14)),
+                        yaxis=dict(title=None, showgrid=True, gridcolor='rgba(255,255,255,0.08)',
+                                   tickfont=dict(color='#64748b', size=11)),
+                        height=350,
                         showlegend=False,
-                        margin=dict(t=30, l=10, r=10, b=10)
+                        bargap=0.35,
+                        margin=dict(t=40, l=10, r=10, b=20)
                     )
-                    st.markdown("###### 🍂 계절별 산행 빈도 (Seasonality)")
+                    st.markdown("<p class='chart-title'>🍂 계절별 산행 빈도 (Seasonality)</p>", unsafe_allow_html=True)
                     st.plotly_chart(fig_sea, use_container_width=True)
                 else:
                     st.info("데이터 부족")
@@ -838,12 +854,10 @@ class HomePage:
         
         with c3:
             st.markdown("""
-            <div style="background-color: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
-                <span style="font-size: 18px; font-weight: bold; color: #ec4899;">❓ 언제 첫 산행을 할까요?</span><br>
-                <div style="margin-top: 10px; font-size: 14px; color: #ddd; line-height: 1.6;">
-                    신규 회원이 가입 후 <b>첫 산행</b>에 참여하기까지 걸리는 시간입니다.<br>
-                    대부분의 열정 회원은 <span style="color: #4ade80; font-weight: bold;">가입 1달 내</span>에 첫 활동을 시작합니다.
-                </div>
+            <div class="insight-card">
+                <span class="title">❓ 언제 첫 산행을 할까요?</span>
+                신규 회원이 가입 후 <b>첫 산행</b>에 참여하기까지 걸리는 시간을 분석합니다.<br>
+                대부분의 열정적인 회원은 <span class="highlight">가입 후 1개월 이내</span>에 첫 활동을 시작합니다. 빠른 참여가 장기 활동으로 이어지는 핵심 지표입니다.
             </div>
             """, unsafe_allow_html=True)
             
@@ -858,18 +872,22 @@ class HomePage:
                         df_timing, x='count', y='range', orientation='h',
                         text='count',
                         color='range',
-                        color_discrete_sequence=['#ef4444', '#f59e0b', '#3b82f6', '#94a3b8'] # Red (Fast), Orange, Blue, Grey
+                        color_discrete_sequence=['#ef4444', '#f59e0b', '#3b82f6', '#94a3b8']
                     )
                     
-                    fig_timing.update_traces(textposition='inside', textfont=dict(color='white'))
+                    fig_timing.update_traces(
+                        textposition='inside',
+                        textfont=dict(color='white', size=15, family='Noto Sans KR'),
+                        width=0.6
+                    )
                     fig_timing.update_layout(
                         paper_bgcolor='rgba(0,0,0,0)',
                         plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color='white', family="Inter"),
+                        font=dict(color='white', family='Noto Sans KR'),
                         xaxis=dict(showgrid=False, title=None, visible=False),
-                        yaxis=dict(showgrid=False, title=None, tickfont=dict(size=14)),
-                        height=250,
-                        margin=dict(t=0, b=0, l=0, r=0),
+                        yaxis=dict(showgrid=False, title=None, tickfont=dict(size=14, family='Noto Sans KR')),
+                        height=300,
+                        margin=dict(t=10, b=10, l=10, r=30),
                         showlegend=False
                     )
                     st.plotly_chart(fig_timing, use_container_width=True)
@@ -902,27 +920,27 @@ class HomePage:
                     fig_dow = go.Figure(go.Scatterpolar(
                         r=vals, theta=cats,
                         fill='toself',
-                        fillcolor='rgba(46,204,113,0.20)',
-                        line=dict(color='#2ecc71', width=2.5),
-                        marker=dict(size=8, color='#2ecc71', line=dict(width=2, color='white')),
+                        fillcolor='rgba(46,204,113,0.28)',
+                        line=dict(color='#2ecc71', width=3),
+                        marker=dict(size=10, color='#2ecc71', line=dict(width=2, color='white')),
                         hovertemplate='<b>%{theta}</b>요일<br>산행: %{r}회<extra></extra>'
                     ))
                     fig_dow.update_layout(
                         polar=dict(
                             bgcolor='rgba(0,0,0,0)',
                             radialaxis=dict(visible=True, showticklabels=True,
-                                            tickfont=dict(color='#94a3b8', size=10),
-                                            gridcolor='rgba(255,255,255,0.1)'),
-                            angularaxis=dict(tickfont=dict(color='#e2e8f0', size=13, family='Noto Sans KR'),
-                                             gridcolor='rgba(255,255,255,0.1)')
+                                            tickfont=dict(color='#94a3b8', size=11),
+                                            gridcolor='rgba(255,255,255,0.12)'),
+                            angularaxis=dict(tickfont=dict(color='#e2e8f0', size=16, family='Noto Sans KR'),
+                                             gridcolor='rgba(255,255,255,0.12)')
                         ),
                         paper_bgcolor='rgba(0,0,0,0)',
                         font=dict(color='white', family='Noto Sans KR'),
                         showlegend=False,
-                        height=300,
-                        margin=dict(t=30, b=30, l=30, r=30)
+                        height=360,
+                        margin=dict(t=40, b=40, l=40, r=40)
                     )
-                    st.markdown("###### 🗓️ 요일별 산행 빈도 (레이더)")
+                    st.markdown("<p class='chart-title'>🗓️ 요일별 산행 빈도 (레이더)</p>", unsafe_allow_html=True)
                     st.plotly_chart(fig_dow, use_container_width=True, config={'displayModeBar': False})
                 else:
                     st.info("데이터 부족")
@@ -966,7 +984,7 @@ class HomePage:
                         marker=dict(color=colors, line=dict(color='#2ecc71', width=0.8)),
                         text=[f"{r:.0f}%" if r > 0 else "" for r in df_merged['rate']],
                         textposition='outside',
-                        textfont=dict(color='#e2e8f0', size=11),
+                        textfont=dict(color='#e2e8f0', size=13, family='Noto Sans KR'),
                         customdata=hover,
                         hovertemplate='%{customdata}<extra></extra>'
                     ))
@@ -974,18 +992,18 @@ class HomePage:
                         paper_bgcolor='rgba(0,0,0,0)',
                         plot_bgcolor='rgba(0,0,0,0)',
                         font=dict(color='white', family='Noto Sans KR'),
-                        xaxis=dict(range=[0, 115], showgrid=True,
-                                   gridcolor='rgba(255,255,255,0.05)', title=None,
-                                   ticksuffix='%', tickfont=dict(color='#64748b', size=10)),
+                        xaxis=dict(range=[0, 125], showgrid=True,
+                                   gridcolor='rgba(255,255,255,0.06)', title=None,
+                                   ticksuffix='%', tickfont=dict(color='#64748b', size=11)),
                         yaxis=dict(showgrid=False, automargin=True,
-                                   tickfont=dict(color='#e2e8f0', size=12),
+                                   tickfont=dict(color='#e2e8f0', size=13),
                                    categoryorder='array',
                                    categoryarray=df_merged['label'].tolist()),
-                        height=300,
-                        margin=dict(t=30, b=10, l=10, r=30),
+                        height=360,
+                        margin=dict(t=30, b=10, l=10, r=40),
                         hoverlabel=dict(bgcolor='rgba(10,15,30,0.9)', font_size=13)
                     )
-                    st.markdown(f"###### 🎯 {cur_month_str} 생년별 참가율 (이번 달)")
+                    st.markdown(f"<p class='chart-title'>🎯 {cur_month_str} 생년별 참가율 (이번 달)</p>", unsafe_allow_html=True)
                     st.plotly_chart(fig_part, use_container_width=True, config={'displayModeBar': False})
                 else:
                     st.info("이번 달 참가 데이터 없음")
@@ -1067,21 +1085,21 @@ class HomePage:
 
             fig = go.Figure()
             for i, (month, cnt) in enumerate(zip(months, counts)):
-                color_intensity = int(80 + 175 * (cnt / max_c))
-                bubble_color = f"rgba(46, 204, 113, {0.3 + 0.7 * cnt / max_c:.2f})"
+                bubble_color = f"rgba(46, 204, 113, {0.30 + 0.70 * cnt / max_c:.2f})"
+                bubble_size  = max(32, int(24 + 56 * cnt / max_c))
                 fig.add_trace(go.Scatter(
                     x=[month],
                     y=[cnt],
                     mode='markers+text',
                     marker=dict(
-                        size=max(25, int(20 + 50 * cnt / max_c)),
+                        size=bubble_size,
                         color=bubble_color,
-                        line=dict(width=2, color='rgba(46, 204, 113, 0.9)'),
-                        opacity=0.85
+                        line=dict(width=2.5, color='rgba(46, 204, 113, 0.95)'),
+                        opacity=0.88
                     ),
                     text=[str(cnt)],
                     textposition='middle center',
-                    textfont=dict(color='white', size=13, family='Noto Sans KR'),
+                    textfont=dict(color='white', size=15, family='Noto Sans KR', weight=700),
                     hovertemplate=f"<b>{month}</b><br>산행 횟수: {cnt}회<extra></extra>",
                     showlegend=False
                 ))
@@ -1090,10 +1108,13 @@ class HomePage:
             fig.add_trace(go.Scatter(
                 x=months, y=counts,
                 mode='lines',
-                line=dict(color='rgba(46, 204, 113, 0.3)', width=2, dash='dot'),
+                line=dict(color='rgba(46, 204, 113, 0.35)', width=2, dash='dot'),
                 showlegend=False,
                 hoverinfo='skip'
             ))
+
+            y_min = max(0, min(counts) - 1) if counts else 0
+            y_max = (max(counts) + 1.5) if counts else 5
 
             fig.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)',
@@ -1101,17 +1122,18 @@ class HomePage:
                 font=dict(color='white', family='Noto Sans KR'),
                 xaxis=dict(
                     showgrid=False, title=None,
-                    tickfont=dict(color='#aaa', size=12),
+                    tickfont=dict(color='#94a3b8', size=13),
                     tickangle=-30
                 ),
                 yaxis=dict(
-                    showgrid=True, gridcolor='rgba(255,255,255,0.05)',
+                    showgrid=True, gridcolor='rgba(255,255,255,0.07)',
                     title=dict(text='산행 횟수', font=dict(color='#aaa', size=12)),
-                    tickfont=dict(color='#aaa')
+                    tickfont=dict(color='#64748b', size=11),
+                    range=[y_min, y_max]
                 ),
-                height=320,
-                margin=dict(t=20, b=40, l=40, r=20),
-                hovermode='x'
+                height=360,
+                margin=dict(t=30, b=50, l=50, r=30),
+                hovermode='x unified'
             )
             st.plotly_chart(fig, use_container_width=True)
         except Exception as e:
