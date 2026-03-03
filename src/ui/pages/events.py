@@ -15,6 +15,36 @@ class EventsPage:
         st.header("📅 공지 관리")
         df_e = self.db.query("SELECT * FROM events ORDER BY date DESC")
         
+        # [회원 명단 로드 및 호스트 매핑 초기화]
+        try:
+            df_members = self.db.query("SELECT user_no, name FROM members ORDER BY name")
+            user_map = {}
+            for _, r in df_members.iterrows():
+                user_map[str(r['user_no'])] = f"{r['name']} ({r['user_no']})"
+        except Exception:
+            user_map = {}
+            
+        def map_host_to_display(h):
+            if pd.isna(h) or str(h).strip() in ["", "None", "nan"]:
+                return None
+            h_str = str(h).strip()
+            if '(' in h_str and h_str.endswith(')'):
+                return h_str
+            if h_str in user_map:
+                return user_map[h_str]
+            for u_no, display in user_map.items():
+                if display.startswith(h_str + ' ('):
+                    return display
+            return h_str
+            
+        df_e['host'] = df_e['host'].apply(map_host_to_display)
+        
+        host_options = list(user_map.values())
+        existing_hosts = set(df_e['host'].dropna().unique())
+        for eh in existing_hosts:
+            if eh not in host_options:
+                host_options.append(eh)
+        
         # [일정 검색 및 필터]
         with st.expander("🔍 일정 검색 및 필터", expanded=True):
             c1, c2 = st.columns([1, 2])
@@ -45,6 +75,7 @@ class EventsPage:
         column_config = {
             "date": st.column_config.DateColumn("행사일", format="YYYY-MM-DD", width="medium"),
             "title": st.column_config.TextColumn("공지명", width="large"),
+            "host": st.column_config.SelectboxColumn("호스트", options=host_options, help="호스트(주최자)를 선택하세요. (이름 검색 가능)", width="medium"),
             "event_id": st.column_config.TextColumn("ID", help="URL 입력 시 자동 추출되지만, 직접 입력도 가능합니다."),
         }
         
@@ -92,6 +123,17 @@ class EventsPage:
                         
                         if match:
                             event_id = match.group(1)
+                            
+                    # host 파싱 ("이름 (user_no)" -> "user_no")
+                    host_raw = row.get('host', None)
+                    if pd.isna(host_raw) or str(host_raw).strip() in ["", "None", "nan"]:
+                        host_val = None
+                    else:
+                        host_val = str(host_raw).strip()
+                        if "(" in host_val and host_val.endswith(")"):
+                            u_no_match = re.search(r'\(([^)]+)\)$', host_val)
+                            if u_no_match:
+                                host_val = u_no_match.group(1)
                     
                     # 수동으로 튜플 생성하여 명시적으로 컬럼 순서 맞춤
                     # updated.columns 순서대로 데이터 구성
@@ -99,6 +141,8 @@ class EventsPage:
                     for col in updated.columns:
                         if col == 'event_id':
                             row_data.append(event_id)
+                        elif col == 'host':
+                            row_data.append(host_val)
                         else:
                             row_data.append(row[col])
                             
