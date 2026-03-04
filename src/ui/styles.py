@@ -19,20 +19,22 @@ class Styles:
             @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&family=Orbitron:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
 
             /* 2. Global Typography */
-            html, body, [class*="css"] {{
+            html, body, [class*="css"], p, span, li, .markdown-text-container {{
                 font-family: '{theme.font_body}', sans-serif;
                 color: {c.text_primary};
                 background-color: {c.background};
+                line-height: 1.6;
+                font-size: 15px;
             }}
             h1, h2, h3 {{
                 font-family: '{theme.font_header}', '{theme.font_body}', sans-serif !important;
                 font-weight: 700;
-                letter-spacing: 0.5px;
+                letter-spacing: 0.8px;
                 color: {c.primary} !important;
                 text-transform: uppercase;
                 background: none;
                 -webkit-text-fill-color: initial;
-                text-shadow: none;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.3);
             }}
 
             /* 3. Animations */
@@ -255,6 +257,15 @@ class Styles:
 
             /* Toggle */
             .stToggle [data-testid="stToggleText"] {{ color: {c.text_primary} !important; }}
+
+            /* DataFrame / Data Editor Enhancements */
+            div[data-testid="stDataFrame"] div[data-testid="stDataFrame"] {{
+                font-size: 14px;
+            }}
+            div[data-testid="stDataFrame"] [data-testid="StyledTableCell"] {{
+                padding: 12px 16px !important;
+                vertical-align: middle;
+            }}
 
             /* Data Editor Dropdown (selectbox in st.data_editor) Fix */
             div[data-baseweb="popover"] > div,
