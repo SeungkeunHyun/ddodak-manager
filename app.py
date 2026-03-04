@@ -68,15 +68,17 @@ def main():
         # Use columns to center the login box
         _, col_center, _ = st.columns([1, 2, 1])
         with col_center:
-            st.markdown("### 관리자 로그인")
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("### 🔐 관리자 로그인")
             auth.login(location='main')
             
             st.markdown("---")
-            st.markdown("<div style='text-align: center; color: #888; font-size: 0.9em; margin-bottom: 10px;'>또는</div>", unsafe_allow_html=True)
+            st.markdown("<div style='text-align: center; color: #888; font-size: 0.9em; margin-bottom: 15px;'>또는</div>", unsafe_allow_html=True)
             
             auth_url = band_auth.get_authorization_url()
             # Full width button for better mobile/desktop visuals
             st.link_button("🟩 네이버 밴드로 로그인 (리더/공동리더 권한)", auth_url, use_container_width=True)
+            st.markdown("<br>", unsafe_allow_html=True)
             
     if st.session_state["authentication_status"]:
         # 3. Initialize Services
@@ -105,9 +107,9 @@ def main():
         auth.logout("로그아웃", "sidebar")
         
     elif st.session_state["authentication_status"] is False:
-        st.error("비밀번호가 틀렸습니다.")
+        st.error("❌ 비밀번호가 틀렸습니다.")
     elif st.session_state["authentication_status"] is None:
-        st.warning("로그인이 필요합니다.")
+        st.warning("⚠️ 로그인이 필요합니다.")
 
 if __name__ == "__main__":
     main()

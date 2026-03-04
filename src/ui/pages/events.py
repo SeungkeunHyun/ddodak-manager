@@ -16,13 +16,15 @@ class EventsPage:
         df_e = self.db.query("SELECT * FROM events ORDER BY date DESC")
         
         # [회원 명단 로드 및 호스트 매핑 초기화]
-        try:
-            df_members = self.db.query("SELECT user_no, name FROM members ORDER BY name")
-            user_map = {}
-            for _, r in df_members.iterrows():
-                user_map[str(r['user_no'])] = f"{r['name']} ({r['user_no']})"
-        except Exception:
-            user_map = {}
+        @st.cache_data(ttl=300)
+        def get_user_map(_db):
+            try:
+                df_members = _db.query("SELECT user_no, name FROM members ORDER BY name")
+                return {str(r['user_no']): f"{r['name']} ({r['user_no']})" for _, r in df_members.iterrows()}
+            except Exception:
+                return {}
+
+        user_map = get_user_map(self.db)
             
         def map_host_to_display(h):
             if pd.isna(h) or str(h).strip() in ["", "None", "nan"]:
@@ -32,7 +34,7 @@ class EventsPage:
                 return h_str
             if h_str in user_map:
                 return user_map[h_str]
-            for u_no, display in user_map.items():
+            for display in user_map.values():
                 if display.startswith(h_str + ' ('):
                     return display
             return h_str
@@ -41,9 +43,7 @@ class EventsPage:
         
         host_options = list(user_map.values())
         existing_hosts = set(df_e['host'].dropna().unique())
-        for eh in existing_hosts:
-            if eh not in host_options:
-                host_options.append(eh)
+        host_options.extend([eh for eh in existing_hosts if eh not in host_options])
         
         # [일정 검색 및 필터]
         with st.expander("🔍 일정 검색 및 필터", expanded=True):
@@ -108,73 +108,83 @@ class EventsPage:
                 import re
                 
                 count_saved = 0
-                df_orig_indexed = df_filtered.set_index('event_id')
+                count_error = 0
+                df_orig_indexed = df_filtered.set_index('event_id') if not df_filtered.empty else pd.DataFrame()
 
                 for _, row in updated.iterrows():
-                    # event_id 추출 및 보정
-                    event_id = str(row['event_id']).strip() if not pd.isna(row['event_id']) else ""
-                    album_url = str(row['album_url']).strip() if not pd.isna(row['album_url']) else ""
-                    
-                    if event_id == "" and album_url != "":
-                        # URL의 마지막 / 뒤의 숫자들 추출
-                        match = re.search(r'/(\d+)/?$', album_url)
-                        if not match:
-                            match = re.search(r'(\d+)$', album_url)
+                    try:
+                        # event_id 추출 및 보정
+                        event_id_raw = row.get('event_id')
+                        event_id = str(event_id_raw).strip() if not pd.isna(event_id_raw) else ""
+                        album_url_raw = row.get('album_url')
+                        album_url = str(album_url_raw).strip() if not pd.isna(album_url_raw) else ""
                         
-                        if match:
-                            event_id = match.group(1)
+                        if event_id == "" and album_url != "":
+                            # URL의 마지막 / 뒤의 숫자들 추출
+                            match = re.search(r'/(\d+)/?$', album_url)
+                            if not match:
+                                match = re.search(r'(\d+)$', album_url)
                             
-                    # host 파싱 ("이름 (user_no)" -> "user_no")
-                    host_raw = row.get('host', None)
-                    if pd.isna(host_raw) or str(host_raw).strip() in ["", "None", "nan"]:
-                        host_val = None
-                    else:
-                        host_val = str(host_raw).strip()
-                        if "(" in host_val and host_val.endswith(")"):
-                            u_no_match = re.search(r'\(([^)]+)\)$', host_val)
-                            if u_no_match:
-                                host_val = u_no_match.group(1)
-                    
-                    # 수동으로 튜플 생성하여 명시적으로 컬럼 순서 맞춤
-                    # updated.columns 순서대로 데이터 구성
-                    row_data = []
-                    for col in updated.columns:
-                        if col == 'event_id':
-                            row_data.append(event_id)
-                        elif col == 'host':
-                            row_data.append(host_val)
+                            if match:
+                                event_id = match.group(1)
+                                
+                        # host 파싱 ("이름 (user_no)" -> "user_no")
+                        host_raw = row.get('host', None)
+                        if pd.isna(host_raw) or str(host_raw).strip() in ["", "None", "nan"]:
+                            host_val = None
                         else:
-                            row_data.append(row[col])
+                            host_val = str(host_raw).strip()
+                            if "(" in host_val and host_val.endswith(")"):
+                                u_no_match = re.search(r'\(([^)]+)\)$', host_val)
+                                if u_no_match:
+                                    host_val = u_no_match.group(1)
+                        
+                        # 수동으로 튜플 생성하여 명시적으로 컬럼 순서 맞춤
+                        row_data = []
+                        for col in updated.columns:
+                            if col == 'event_id':
+                                row_data.append(event_id)
+                            elif col == 'host':
+                                row_data.append(host_val)
+                            else:
+                                row_data.append(row[col])
+                                
+                        # Delta Check
+                        if df_orig_indexed.empty or event_id not in df_orig_indexed.index:
+                            # New record
+                            self.db.execute(sql, tuple(row_data))
+                            count_saved += 1
+                            continue
+                        
+                        # Existing record - Compare
+                        try:
+                            orig_row = df_orig_indexed.loc[event_id]
+                            # Handle duplicate IDs gracefully (if any)
+                            if isinstance(orig_row, pd.DataFrame):
+                                orig_row = orig_row.iloc[0]
+                        except KeyError:
+                            # Fail-safe fallback
+                            self.db.execute(sql, tuple(row_data))
+                            count_saved += 1
+                            continue
                             
-                    # Delta Check
-                    # If event_id is empty (new row without ID yet?) or not in original
-                    # Note: Original logic extracted ID from URL, so we must compare constructed row
-                    
-                    if event_id not in df_orig_indexed.index:
-                        # New record
-                        self.db.execute(sql, tuple(row_data))
-                        count_saved += 1
+                        curr_dict = {col: (event_id if col=='event_id' else row[col]) for col in updated.columns}
+                        orig_dict = orig_row.to_dict()
+                        
+                        is_changed = False
+                        for k, v in curr_dict.items():
+                            orig_v = orig_dict.get(k)
+                            if str(v) != str(orig_v):
+                                is_changed = True
+                                break
+                        
+                        if is_changed:
+                             self.db.execute(sql, tuple(row_data))
+                             count_saved += 1
+                    except Exception as e:
+                        st.error(f"⚠️ 행 데이터 처리 중 오류 발생: {str(e)}")
+                        count_error += 1
                         continue
-                    
-                    # Existing record - Compare
-                    orig_row = df_orig_indexed.loc[event_id]
-                    # We need to construct a robust comparison dict
-                    # Current row dict (with fixed event_id)
-                    curr_dict = {col: (event_id if col=='event_id' else row[col]) for col in updated.columns}
-                    orig_dict = orig_row.to_dict()
-                    
-                    # Simple equality might fail on types (int vs str). 
-                    # Let's stringify everything for safe comparison or rely on basic equality
-                    is_changed = False
-                    for k, v in curr_dict.items():
-                        orig_v = orig_dict.get(k)
-                        if str(v) != str(orig_v):
-                            is_changed = True
-                            break
-                    
-                    if is_changed:
-                         self.db.execute(sql, tuple(row_data))
-                         count_saved += 1
                     
                 import time
                 time.sleep(0.5)
@@ -186,9 +196,14 @@ class EventsPage:
                 if "event_editor" in st.session_state:
                     del st.session_state["event_editor"]
                 
-                st.success(f"""
+                msg = f"""
                 ✅ **일정 반영 완료!**
                 - 💾 **저장/수정**: {count_saved}건 (변경됨)
                 - 🗑️ **삭제**: {len(deleted_ids)}건
-                """)
+                """
+                if count_error > 0:
+                    msg += f"\n- ⚠️ **오류 발생**: {count_error}건 (저장 실패)"
+                    st.warning(msg)
+                else:
+                    st.success(msg)
                 st.rerun()

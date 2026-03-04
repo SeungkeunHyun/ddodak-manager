@@ -256,6 +256,22 @@ class Styles:
             /* Toggle */
             .stToggle [data-testid="stToggleText"] {{ color: {c.text_primary} !important; }}
 
+            /* Data Editor Dropdown (selectbox in st.data_editor) Fix */
+            div[data-baseweb="popover"] > div,
+            div[role="listbox"],
+            ul[role="listbox"] {{
+                background-color: {c.card_bg} !important;
+                color: {c.text_primary} !important;
+                border: 1px solid {c.border} !important;
+            }}
+            li[role="option"] {{
+                color: {c.text_primary} !important;
+            }}
+            li[role="option"]:hover, li[role="option"][aria-selected="true"] {{
+                background-color: rgba(46, 204, 113, 0.15) !important;
+                color: {c.primary} !important;
+            }}
+
             /* Typography Helpers */
             .readable-subtext {{
                 font-size: 14px !important;
