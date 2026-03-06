@@ -402,10 +402,11 @@ class AnalysisService:
         sql = """
             SELECT 
                 CASE 
-                    WHEN point >= 1000 THEN '🏆 1000점+ (마스터)'
-                    WHEN point >= 500 THEN '🥇 500점+ (시니어)'
-                    WHEN point >= 100 THEN '🥈 100점+ (레귤러)'
-                    ELSE '🥉 100점 미만 (주니어)'
+                    WHEN point >= 100 THEN '🏆 100점+ (마스터)'
+                    WHEN point >= 50 THEN '🥇 50점+ (시니어)'
+                    WHEN point >= 30 THEN '🥈 30점+ (레귤러)'
+                    WHEN point >= 10 THEN '🥉 10점+ (주니어)'
+                    ELSE '🌱 10점 미만 (새싹)'
                 END as point_group,
                 COUNT(*) as cnt
             FROM members
@@ -415,10 +416,11 @@ class AnalysisService:
         df = _self.db.query(sql)
         # Custom sort order
         sort_dict = {
-            '🏆 1000점+ (마스터)': 1,
-            '🥇 500점+ (시니어)': 2,
-            '🥈 100점+ (레귤러)': 3,
-            '🥉 100점 미만 (주니어)': 4
+            '🏆 100점+ (마스터)': 1,
+            '🥇 50점+ (시니어)': 2,
+            '🥈 30점+ (레귤러)': 3,
+            '🥉 10점+ (주니어)': 4,
+            '🌱 10점 미만 (새싹)': 5
         }
         if not df.empty:
             df['sort_order'] = df['point_group'].map(sort_dict)
