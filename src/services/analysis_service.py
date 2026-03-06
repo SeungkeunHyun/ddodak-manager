@@ -372,3 +372,55 @@ class AnalysisService:
         except Exception as e:
             print(f"Timing Stats Error: {e}")
             return pd.Series()
+
+    @st.cache_data(ttl=3600)
+    def get_regional_activity_stats(_self):
+        """
+        지역별 열성도 (지역별 총 산행 참석 횟수 및 인당 평균)
+        """
+        sql = """
+            SELECT 
+                m.area, 
+                COUNT(a.user_no) as total_attends,
+                COUNT(DISTINCT m.user_no) as active_members,
+                (CAST(COUNT(a.user_no) AS FLOAT) / COUNT(DISTINCT m.user_no)) as attend_per_person
+            FROM attendees a
+            JOIN members m ON a.user_no = m.user_no
+            WHERE m.role <> 'exmember' AND m.area IS NOT NULL AND m.area <> ''
+            GROUP BY m.area
+            HAVING active_members > 1
+            ORDER BY total_attends DESC
+            LIMIT 7
+        """
+        return _self.db.query(sql)
+
+    @st.cache_data(ttl=3600)
+    def get_point_distribution(_self):
+        """
+        회원 누적 포인트 분포 (마스터, 시니어, 레귤러, 주니어)
+        """
+        sql = """
+            SELECT 
+                CASE 
+                    WHEN point >= 1000 THEN '🏆 1000점+ (마스터)'
+                    WHEN point >= 500 THEN '🥇 500점+ (시니어)'
+                    WHEN point >= 100 THEN '🥈 100점+ (레귤러)'
+                    ELSE '🥉 100점 미만 (주니어)'
+                END as point_group,
+                COUNT(*) as cnt
+            FROM members
+            WHERE role <> 'exmember'
+            GROUP BY point_group
+        """
+        df = _self.db.query(sql)
+        # Custom sort order
+        sort_dict = {
+            '🏆 1000점+ (마스터)': 1,
+            '🥇 500점+ (시니어)': 2,
+            '🥈 100점+ (레귤러)': 3,
+            '🥉 100점 미만 (주니어)': 4
+        }
+        if not df.empty:
+            df['sort_order'] = df['point_group'].map(sort_dict)
+            df = df.sort_values('sort_order').drop(columns=['sort_order'])
+        return df

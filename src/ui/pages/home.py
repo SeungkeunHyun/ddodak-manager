@@ -38,16 +38,7 @@ class HomePage:
         # v2.24.4 Hotfix: active_members 정의 복구
         active_members = df_summary[df_summary['회원상태'] != 'exmember']
         
-        # [사이드바 AI 브리핑 버튼]
-        with st.sidebar:
-            st.divider()
-            st.subheader("🤖 AI 비서")
-            if st.button("✨ 월간 브리핑 생성", use_container_width=True):
-                upcoming = self.analysis.get_upcoming_events()
-                if upcoming.empty:
-                    st.sidebar.warning("예정된 산행 데이터가 없습니다.")
-                else:
-                    self._show_ai_briefing(upcoming)
+        # (사이드바 메뉴 및 AI 브리핑 버튼이 있었으나, 요청에 의해 제거됨)
 
         # [탭 또는 전체 보기 구조]
         if not pdf_mode:
@@ -841,6 +832,79 @@ class HomePage:
             except Exception as e:
                 st.error(f"Seasonality Chart Error: {e}")
 
+        st.markdown('<div style="height: 30px;"></div>', unsafe_allow_html=True)
+        st.subheader("🗺️ 지역 & 포인트 기여도 분석")
+        c_reg1, c_reg2 = st.columns(2)
+        
+        with c_reg1:
+            try:
+                df_area = self.analysis.get_regional_activity_stats()
+                if not df_area.empty:
+                    fig_area = px.bar(
+                        df_area, 
+                        x='total_attends', y='area', 
+                        orientation='h',
+                        text='total_attends',
+                        color='attend_per_person',
+                        color_continuous_scale='Blues'
+                    )
+                    fig_area.update_traces(
+                        textposition='outside',
+                        textfont=dict(color='white', size=13),
+                        marker_line_width=0
+                    )
+                    fig_area.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='white', family='Noto Sans KR'),
+                        xaxis=dict(showgrid=False, title=None, visible=False),
+                        yaxis=dict(showgrid=False, title=None, tickfont=dict(size=14, color='#e2e8f0'), categoryorder='total ascending'),
+                        height=350,
+                        margin=dict(t=30, l=10, r=40, b=10),
+                        coloraxis_showscale=False
+                    )
+                    st.markdown("<p class='chart-title'>📍 지역별 누적 산행 참석수 (Top 7)</p>", unsafe_allow_html=True)
+                    st.plotly_chart(fig_area, use_container_width=True, config={'displayModeBar': False})
+                else:
+                    st.info("데이터 부족")
+            except Exception as e:
+                st.error(f"Regional Activity Error: {e}")
+                
+        with c_reg2:
+            try:
+                df_point = self.analysis.get_point_distribution()
+                if not df_point.empty:
+                    fig_pt = px.pie(
+                        df_point, values='cnt', names='point_group',
+                        color='point_group',
+                        color_discrete_map={
+                            '🏆 1000점+ (마스터)': '#f59e0b',
+                            '🥇 500점+ (시니어)': '#3b82f6',
+                            '🥈 100점+ (레귤러)': '#10b981',
+                            '🥉 100점 미만 (주니어)': '#64748b'
+                        },
+                        hole=0.5
+                    )
+                    fig_pt.update_traces(
+                        textinfo='percent+label',
+                        textposition='inside',
+                        textfont=dict(size=12, color='white', family='Noto Sans KR'),
+                        marker=dict(line=dict(color='#0e1117', width=2))
+                    )
+                    fig_pt.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='white', family='Noto Sans KR'),
+                        showlegend=False,
+                        height=350,
+                        margin=dict(t=30, b=20, l=20, r=20)
+                    )
+                    st.markdown("<p class='chart-title'>⭐ 회원 누적 포인트 등급 분포</p>", unsafe_allow_html=True)
+                    st.plotly_chart(fig_pt, use_container_width=True, config={'displayModeBar': False})
+                else:
+                    st.info("데이터 부족")
+            except Exception as e:
+                st.error(f"Point Chart Error: {e}")
+
         st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
         
         # 3. Monthly Bubble Timeline — NEW
@@ -1173,27 +1237,3 @@ class HomePage:
                 st.error("날씨 정보 없음")
         except Exception as e:
             st.error("날씨 로드 실패")
-
-    def _show_ai_briefing(self, upcoming_events):
-        with st.chat_message("assistant"):
-            with st.spinner("🤖 산악회 비서가 데이터를 분석 중입니다..."):
-                try:
-                    summary_text = f"현재 날짜: {datetime.now().strftime('%Y-%m-%d')}\n"
-                    if not upcoming_events.empty:
-                        for _, row in upcoming_events.iterrows():
-                            summary_text += f"- 일정: {row['title']} ({row['date']}), 담당: {row['host']}\n"
-                    
-                    if self.ai and self.ai.model:
-                        response = self.ai.model.generate_content(f"""
-                        당신은 '또닥또닥 산악회'의 AI 비서입니다. 
-                        다음 일정 정보를 바탕으로 회원들에게 전할 활기차고 유용한 월간 브리핑을 작성해주세요.
-                        날씨 언급은 일반적인 계절감을 섞어서 해주세요.
-                        
-                        [정보]
-                        {summary_text}
-                        """)
-                        st.markdown(response.text)
-                    else:
-                        st.info("AI 모델이 연결되지 않았습니다.")
-                except Exception as e:
-                    st.error(f"AI 분석 중 오류 발생: {e}")
