@@ -123,7 +123,15 @@ class MembersPage:
                     curr_dict = row.to_dict()
                     orig_dict = orig_row.to_dict()
                     
-                    if curr_dict != orig_dict:
+                    is_changed = False
+                    for k, v in curr_dict.items():
+                        orig_v = orig_dict.get(k)
+                        # str() cast handles np.nan != np.nan returning True issue and slight type casting mismatches
+                        if str(v) != str(orig_v):
+                            is_changed = True
+                            break
+                    
+                    if is_changed:
                         self.db.execute(sql, tuple(row))
                         count_saved += 1
 
