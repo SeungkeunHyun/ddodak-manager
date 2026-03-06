@@ -15,7 +15,8 @@ class ReportPage:
     def render(self):
         Layout.render_manual("보고서 생성")
         st.header("📊 활동 결과 보고서")
-        col1, col2 = st.columns([2, 1])
+        st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+        col1, col2 = st.columns([2, 1], gap="large")
         with col1: rules = st.text_input("🔗 회칙 링크", value=Config.RULES_URL)
         with col2: target_month = st.text_input("📅 대상 월 (YYYY-MM)", value=datetime.now(Config.KST).strftime('%Y-%m'))
         

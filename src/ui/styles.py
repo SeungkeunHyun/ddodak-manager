@@ -19,12 +19,18 @@ class Styles:
             @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&family=Orbitron:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
 
             /* 2. Global Typography */
-            html, body, [class*="css"], p, span, li, .markdown-text-container {{
+            html, body, [class*="css"] {{
                 font-family: '{theme.font_body}', sans-serif;
                 color: {c.text_primary};
-                background-color: {c.background};
-                line-height: 1.6;
-                font-size: 15px;
+                line-height: 1.7;
+                font-size: 16px;
+            }}
+            p, span, li, .markdown-text-container {{
+                font-family: '{theme.font_body}', sans-serif;
+                color: {c.text_primary};
+                background-color: transparent !important;
+                line-height: 1.7;
+                font-size: 16px;
             }}
             h1, h2, h3 {{
                 font-family: '{theme.font_header}', '{theme.font_body}', sans-serif !important;
@@ -91,37 +97,37 @@ class Styles:
                 border: 1px solid {c.border} !important;
                 border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
                 border-left: 1px solid rgba(255, 255, 255, 0.2) !important;
-                border-radius: 20px !important;
-                padding: 24px !important;
+                border-radius: 24px !important;
+                padding: 28px !important;
                 min-height: 130px !important;
-                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.10) !important;
-                transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+                box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+                transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
                 color: {c.text_primary} !important;
-                animation: fadeInUp 0.5s ease forwards;
+                animation: fadeInUp 0.6s ease forwards;
             }}
             .glass-card * {{ color: inherit !important; }}
 
             /* Chart Section Title */
             .chart-title {{
-                font-size: 13px !important;
+                font-size: 14px !important;
                 font-weight: 700 !important;
-                letter-spacing: 1.8px !important;
+                letter-spacing: 2px !important;
                 text-transform: uppercase !important;
                 color: {c.text_secondary} !important;
-                margin: 0 0 10px 0 !important;
-                opacity: 0.92 !important;
+                margin: 0 0 12px 0 !important;
+                opacity: 0.95 !important;
                 display: flex;
                 align-items: center;
-                gap: 6px;
+                gap: 8px;
             }}
 
             /* Insight Context Card */
             .insight-card {{
-                background: rgba(255,255,255,0.04);
-                border: 1px solid rgba(255,255,255,0.1);
+                background: rgba(255,255,255,0.05);
+                border: 1px solid rgba(255,255,255,0.12);
                 border-left: 4px solid {c.accent};
-                border-radius: 14px;
-                padding: 22px 24px;
+                border-radius: 16px;
+                padding: 24px 28px;
                 line-height: 1.8;
             }}
             .insight-card .highlight {{
@@ -129,43 +135,43 @@ class Styles:
                 font-weight: 700;
             }}
             .insight-card .title {{
-                font-size: 17px;
+                font-size: 18px;
                 font-weight: 700;
                 color: {c.accent};
-                margin-bottom: 10px;
+                margin-bottom: 12px;
                 display: block;
             }}
 
             /* Stat Badge */
             .stat-badge {{
                 display: inline-block;
-                padding: 3px 12px;
+                padding: 4px 14px;
                 border-radius: 20px;
-                font-size: 12px;
+                font-size: 13px;
                 font-weight: 700;
                 letter-spacing: 0.5px;
-                background: rgba(46,204,113,0.15);
+                background: rgba(255,255,255,0.08); /* theme agnostic if possible */
                 color: {c.primary};
-                border: 1px solid rgba(46,204,113,0.3);
+                border: 1px solid rgba(255,255,255,0.15);
             }}
 
             /* KPI Value Style */
             .kpi-value {{
-                font-size: 42px !important;
+                font-size: 46px !important;
                 font-weight: 800 !important;
                 color: #ffffff !important;
                 line-height: 1.1;
                 letter-spacing: -1px;
             }}
             .kpi-label {{
-                font-size: 13px !important;
+                font-size: 14px !important;
                 color: {c.text_secondary} !important;
                 font-weight: 600;
                 text-transform: uppercase;
-                letter-spacing: 1px;
+                letter-spacing: 1.2px;
             }}
-            .kpi-trend-up   {{ color: #2ecc71 !important; font-size: 13px; font-weight: 700; }}
-            .kpi-trend-down {{ color: #e74c3c !important; font-size: 13px; font-weight: 700; }}
+            .kpi-trend-up   {{ color: #4ade80 !important; font-size: 14px; font-weight: 700; }}
+            .kpi-trend-down {{ color: #f87171 !important; font-size: 14px; font-weight: 700; }}
 
             /* Section Divider */
             .section-divider {{
@@ -213,45 +219,87 @@ class Styles:
             .badge-dday {{ animation: badge-pulse 1.5s infinite; display: inline-block; }}
 
             /* 5. Streamlit Component Overrides */
-            .stTabs [data-baseweb="tab-list"] {{
-                gap: 10px;
-                background: transparent;
-                padding: 8px;
+            
+            /* Tighter Spacing & Block Margins */
+            .element-container, .stMarkdown {{
+                margin-bottom: 0px;
+            }}
+            .block-container {{
+                padding-top: 2rem !important;
+                padding-bottom: 2rem !important;
+            }}
+            
+            /* Form Inputs / Selectboxes Premiumization */
+            .stTextInput > div > div > input,
+            .stSelectbox > div > div > div {{
                 border-radius: 12px;
+                border: 1px solid {c.border};
+                background: rgba(255, 255, 255, 0.03);
+                color: {c.text_primary};
+                padding: 10px 16px;
+                transition: all 0.3s ease;
+            }}
+            .stTextInput > div > div > input:focus,
+            .stSelectbox > div > div > div:focus-within {{
+                box-shadow: 0 0 0 2px {c.primary}40 !important;
+                border-color: {c.primary} !important;
+                background: rgba(255, 255, 255, 0.08);
+            }}
+
+            .stTabs [data-baseweb="tab-list"] {{
+                gap: 12px;
+                background: rgba(255, 255, 255, 0.05) !important;
+                padding: 10px;
+                border-radius: 16px;
+                border-bottom: none !important;
             }}
             .stTabs [data-baseweb="tab"] {{
-                background-color: transparent;
-                border-radius: 8px;
-                padding: 8px 20px;
-                color: {c.text_secondary};
-                font-weight: 500;
-                border: none;
+                background-color: transparent !important;
+                border-radius: 10px !important;
+                padding: 10px 24px !important;
+                color: {c.text_secondary} !important;
+                font-weight: 600 !important;
+                border: none !important;
+                transition: all 0.3s ease !important;
+            }}
+            .stTabs [data-baseweb="tab-highlight"] {{
+                display: none !important;
             }}
             .stTabs [data-baseweb="tab"]:hover {{
-                color: {c.primary};
-                background-color: rgba(46, 204, 113, 0.08);
+                color: {c.primary} !important;
+                background-color: rgba(255, 255, 255, 0.08) !important;
             }}
             .stTabs [data-baseweb="tab"][aria-selected="true"] {{
-                background: {c.primary_gradient};
+                background: {c.primary_gradient} !important;
                 color: white !important;
-                font-weight: bold;
-                box-shadow: 0 2px 12px rgba(46, 204, 113, 0.35);
+                font-weight: 700 !important;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
+            }}
+            .stTabs [data-baseweb="tab"][aria-selected="true"] p {{
+                color: white !important;
             }}
 
             /* Button */
             .stButton > button {{
-                border-radius: 12px;
+                border-radius: 14px;
                 background: linear-gradient(135deg, {c.primary} 0%, {c.secondary} 100%);
                 border: none;
-                color: white;
-                transition: all 0.3s ease;
+                color: white !important;
+                transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
                 font-family: '{theme.font_header}', sans-serif;
-                box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+                padding: 0.6rem 1.2rem;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+            }}
+            .stButton > button p, .stButton > button span, .stButton > button div {{
+                color: white !important;
+                background-color: transparent !important;
             }}
             .stButton > button:hover {{
-                transform: translateY(-2px);
+                transform: translateY(-3px);
                 filter: brightness(1.15);
-                box-shadow: 0 8px 25px rgba(46, 204, 113, 0.5);
+                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35);
                 color: white !important;
             }}
 
@@ -260,10 +308,10 @@ class Styles:
 
             /* DataFrame / Data Editor Enhancements */
             div[data-testid="stDataFrame"] div[data-testid="stDataFrame"] {{
-                font-size: 14px;
+                font-size: 15px;
             }}
             div[data-testid="stDataFrame"] [data-testid="StyledTableCell"] {{
-                padding: 12px 16px !important;
+                padding: 14px 18px !important;
                 vertical-align: middle;
             }}
 
@@ -279,21 +327,21 @@ class Styles:
                 color: {c.text_primary} !important;
             }}
             li[role="option"]:hover, li[role="option"][aria-selected="true"] {{
-                background-color: rgba(46, 204, 113, 0.15) !important;
+                background-color: rgba(255, 255, 255, 0.1) !important;
                 color: {c.primary} !important;
             }}
 
             /* Typography Helpers */
             .readable-subtext {{
-                font-size: 14px !important;
+                font-size: 15px !important;
                 color: {c.text_secondary} !important;
                 font-weight: 500 !important;
-                line-height: 1.5 !important;
+                line-height: 1.6 !important;
             }}
             .readable-caption {{
-                font-size: 13px !important;
+                font-size: 14px !important;
                 color: {c.text_secondary} !important;
-                opacity: 0.8 !important;
+                opacity: 0.85 !important;
             }}
 
             /* Print Optimization */

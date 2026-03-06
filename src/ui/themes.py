@@ -46,8 +46,8 @@ NatureTheme = Theme(
         accent="#f39c12",           # Warm Amber
         background="#141c18",       # Deep Forest Dark
         card_bg="rgba(30, 45, 38, 0.75)",  # Richer green-dark glass
-        text_primary="#eaf7f0",     # Soft white-green
-        text_secondary="#a8d5ba",   # Bright mint for much better contrast (was #8fb8a0)
+        text_primary="#ffffff",     # Pure white for better readability
+        text_secondary="#bde1cc",   # Very bright mint for excellent contrast
         border="rgba(46, 204, 113, 0.15)",  # Subtle green border
         chart_colors=["#2ecc71", "#1abc9c", "#3498db", "#9b59b6", "#f39c12", "#e74c3c"]
     ),
@@ -67,7 +67,7 @@ CyberTheme = Theme(
         background="#0f172a",
         card_bg="rgba(10, 10, 15, 0.6)",
         text_primary="#ffffff",
-        text_secondary="#e2e8f0",   # Lighter grey/silver for better contrast (was #cbd5e1)
+        text_secondary="#f1f5f9",   # Lighter slate/silver for optimal contrast (was #e2e8f0)
         border="rgba(255, 255, 255, 0.1)",
         chart_colors=["#06b6d4", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#3b82f6"]
     ),

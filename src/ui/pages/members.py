@@ -32,18 +32,18 @@ class MembersPage:
         
         # [고급 필터 & 검색]
         with st.expander("🔍 상세 검색 및 필터", expanded=True):
-            c1, c2, c3, c4 = st.columns([1, 1, 1, 1.5])
+            c1, c2, c3, c4 = st.columns([1, 1, 1, 2], gap="medium")
             with c1: 
                 years = sorted(df_all['birth_year'].dropna().unique())
-                sel_years = st.multiselect("🎂 생년", years, placeholder="전체")
+                sel_years = st.multiselect("🎂 생년", years, placeholder="전체 선택")
             with c2:
                 areas = sorted(df_all['area'].dropna().unique())
-                sel_areas = st.multiselect("📍 지역", areas, placeholder="전체")
+                sel_areas = st.multiselect("📍 지역", areas, placeholder="전체 선택")
             with c3:
                 roles = sorted(df_all['role'].dropna().unique())
-                sel_roles = st.multiselect("👑 역할", roles, placeholder="전체")
+                sel_roles = st.multiselect("👑 역할", roles, placeholder="전체 선택")
             with c4:
-                search_name = st.text_input("👤 이름/설명 검색", placeholder="검색어 입력")
+                search_name = st.text_input("👤 이름/설명 검색", placeholder="검색어를 입력하세요...")
 
         # 필터링 로직
         mask = pd.Series([True] * len(df_all))

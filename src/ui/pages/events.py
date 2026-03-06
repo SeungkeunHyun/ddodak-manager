@@ -47,7 +47,7 @@ class EventsPage:
         
         # [일정 검색 및 필터]
         with st.expander("🔍 일정 검색 및 필터", expanded=True):
-            c1, c2 = st.columns([1, 2])
+            c1, c2 = st.columns([1, 2], gap="medium")
             with c1:
                 df_e['month'] = df_e['date'].astype(str).str[:7]
                 months = sorted(df_e['month'].unique(), reverse=True)
