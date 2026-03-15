@@ -14,14 +14,16 @@ class ReportPage:
 
     def render(self):
         # 1. 원본 데이터 로드
-        # [자동 동기화] 최신 참석일(last_attended) 자동 동기화 쿼리
-        self.db.execute("""
+        # [자동 동기화] 최신 참석일(last_attended) 자동 동기화 쿼리 (미래 시점 제외)
+        today_str = datetime.now(Config.KST).strftime('%Y-%m-%d')
+        self.db.execute(f"""
             UPDATE members AS m
             SET last_attended = t.max_date
             FROM (
                 SELECT a.user_no, MAX(e.date) AS max_date
                 FROM attendees AS a
                 JOIN events AS e ON e.event_id = a.event_id
+                WHERE e.date <= '{today_str}'
                 GROUP BY a.user_no
             ) AS t
             WHERE t.user_no = m.user_no;
