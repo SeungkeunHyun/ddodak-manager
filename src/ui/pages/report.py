@@ -13,8 +13,22 @@ class ReportPage:
         self.db = db
 
     def render(self):
+        # 1. 원본 데이터 로드
+        # [자동 동기화] 최신 참석일(last_attended) 자동 동기화 쿼리
+        self.db.execute("""
+            UPDATE members AS m
+            SET last_attended = t.max_date
+            FROM (
+                SELECT a.user_no, MAX(e.date) AS max_date
+                FROM attendees AS a
+                JOIN events AS e ON e.event_id = a.event_id
+                GROUP BY a.user_no
+            ) AS t
+            WHERE t.user_no = m.user_no;
+        """)
         Layout.render_manual("보고서 생성")
         st.header("📊 활동 결과 보고서")
+        st.info("💡 **안내**: 페이지 진입 시 회원들의 `최근 참석일` 데이터가 최신으로 자동 동기화됩니다.")
         st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
         col1, col2 = st.columns([2, 1], gap="large")
         with col1: rules = st.text_input("🔗 회칙 링크", value=Config.RULES_URL)

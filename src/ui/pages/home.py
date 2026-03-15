@@ -781,6 +781,7 @@ class HomePage:
                     )
                     st.markdown("<p class='chart-title'>🏃 활동 회원 비율 (Activity Rate)</p>", unsafe_allow_html=True)
                     st.plotly_chart(fig_seg, use_container_width=True)
+                    st.caption("💡 **해석 가이드**: 최근 참석 이력과 가입일을 기준으로 한 회원들의 활동성 분포입니다.")
                 else:
                     st.info("데이터 부족")
             except Exception as e:
@@ -827,6 +828,7 @@ class HomePage:
                     )
                     st.markdown("<p class='chart-title'>🍂 계절별 산행 빈도 (Seasonality)</p>", unsafe_allow_html=True)
                     st.plotly_chart(fig_sea, use_container_width=True)
+                    st.caption("💡 **해석 가이드**: 누적 데이터를 바탕으로 어느 계절에 모임이 가장 활발했는지 보여줍니다.")
                 else:
                     st.info("데이터 부족")
             except Exception as e:
@@ -865,6 +867,7 @@ class HomePage:
                     )
                     st.markdown("<p class='chart-title'>📍 지역별 누적 산행 참석수 (Top 7)</p>", unsafe_allow_html=True)
                     st.plotly_chart(fig_area, use_container_width=True, config={'displayModeBar': False})
+                    st.caption("💡 **해석 가이드**: 누적 참석 기록을 기준으로 가장 잦은 발걸음이 닿았던 주요 산 상위 7곳입니다.")
                 else:
                     st.info("데이터 부족")
             except Exception as e:
@@ -901,6 +904,7 @@ class HomePage:
                     )
                     st.markdown("<p class='chart-title'>⭐ 회원 누적 포인트 등급 분포</p>", unsafe_allow_html=True)
                     st.plotly_chart(fig_pt, use_container_width=True, config={'displayModeBar': False})
+                    st.caption("💡 **해석 가이드**: 출석 및 활동으로 획득한 누적 포인트 구간(등급)별 회원 비율입니다.")
                 else:
                     st.info("데이터 부족")
             except Exception as e:
@@ -1007,6 +1011,7 @@ class HomePage:
                     )
                     st.markdown("<p class='chart-title'>🗓️ 요일별 산행 빈도 (레이더)</p>", unsafe_allow_html=True)
                     st.plotly_chart(fig_dow, use_container_width=True, config={'displayModeBar': False})
+                    st.caption("💡 **해석 가이드**: 다각형의 면적이 넓은 요일일수록 산행이 자주 진행되었음을 의미합니다.")
                 else:
                     st.info("데이터 부족")
             except Exception as e:
@@ -1070,6 +1075,7 @@ class HomePage:
                     )
                     st.markdown(f"<p class='chart-title'>🎯 {cur_month_str} 생년별 참가율 (이번 달)</p>", unsafe_allow_html=True)
                     st.plotly_chart(fig_part, use_container_width=True, config={'displayModeBar': False})
+                    st.caption("💡 **해석 가이드**: 해당 연령대의 전체 회원 중 이번 달에 한 번이라도 참석한 회원의 비율입니다.")
                 else:
                     st.info("이번 달 참가 데이터 없음")
             except Exception as e:
@@ -1127,6 +1133,7 @@ class HomePage:
                     hoverlabel=dict(bgcolor='rgba(10,15,30,0.9)', font_size=13)
                 )
                 st.plotly_chart(fig_top, use_container_width=True, config={'displayModeBar': False})
+                st.caption("💡 **해석 가이드**: [산행 점수 × 참석 인원수]로 도출한 종합 점수를 바탕으로 역대 가장 뜨거웠던 산행을 보여줍니다.")
             else:
                 st.info("데이터 부족")
         except Exception as e:
@@ -1201,6 +1208,7 @@ class HomePage:
                 hovermode='x unified'
             )
             st.plotly_chart(fig, use_container_width=True)
+            st.caption("💡 **해석 가이드**: 버블의 크기와 위치가 높을수록 해당 월의 참석 인원과 산행 활동이 많았음을 나타냅니다.")
         except Exception as e:
             st.error(f"Bubble Timeline Error: {e}")
 
