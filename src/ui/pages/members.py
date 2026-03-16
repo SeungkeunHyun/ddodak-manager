@@ -98,21 +98,24 @@ class MembersPage:
                         continue
                         
                     # 2. Existing Record - Check for changes
-                    # Compare hash or values. Simple value comparison:
                     orig_row = df_orig_indexed.loc[user_id]
                     
-                    # Align types if necessary (Pandas sometimes changes ints to floats in editor)
-                    # For simplicity, we assume Streamlit editor maintains types reasonably well or we rely on inequality
-                    
-                    # Create dictionaries for comparison to ignore index/series metadata differences
                     curr_dict = row.to_dict()
                     orig_dict = orig_row.to_dict()
+                    
+                    def normalize_val(val):
+                        if pd.isna(val) or val is None or str(val).strip() == "" or str(val).strip() == "nan":
+                            return ""
+                        # Handle float representations of integers (e.g. 1980.0 -> "1980")
+                        s = str(val).strip()
+                        if s.endswith(".0"):
+                            return s[:-2]
+                        return s
                     
                     is_changed = False
                     for k, v in curr_dict.items():
                         orig_v = orig_dict.get(k)
-                        # str() cast handles np.nan != np.nan returning True issue and slight type casting mismatches
-                        if str(v) != str(orig_v):
+                        if normalize_val(v) != normalize_val(orig_v):
                             is_changed = True
                             break
                     
@@ -126,13 +129,21 @@ class MembersPage:
                 # Clear cache to ensure dashboard/analysis reflects changes immediately
                 st.cache_data.clear()
                 
-                # Force editor refresh by clearing session state
-                if "member_editor" in st.session_state:
-                    del st.session_state["member_editor"]
-                
-                st.success(f"""
-                ✅ **작업 완료!**
-                - 💾 **저장/수정**: {count_saved}건 (변경됨)
-                - 🗑️ **삭제**: {len(deleted_ids)}건
-                """)
-                st.rerun()
+                # 통계와 팝업 토스트 추가 (MCP UI)
+                if count_saved == 0 and len(deleted_ids) == 0:
+                    st.toast("변경 사항이 없습니다.", icon="👀")
+                else:    
+                    # Force editor refresh by clearing session state
+                    if "member_editor" in st.session_state:
+                        del st.session_state["member_editor"]
+                    
+                    st.toast(f"저장 성공: 변경 {count_saved}건, 삭제 {len(deleted_ids)}건 반영", icon="💾")
+                    
+                    msg = f"""
+                    ✅ **작업 완료!**
+                    - 💾 **저장/수정**: {count_saved}건 (실제 변경됨)
+                    - 🗑️ **삭제**: {len(deleted_ids)}건
+                    """
+                    st.success(msg)
+                    time.sleep(1)
+                    st.rerun()

@@ -171,10 +171,18 @@ class EventsPage:
                         curr_dict = {col: (event_id if col=='event_id' else row[col]) for col in updated.columns}
                         orig_dict = orig_row.to_dict()
                         
+                        def normalize_val(val):
+                            if pd.isna(val) or val is None or str(val).strip() == "" or str(val).strip() == "nan":
+                                return ""
+                            s = str(val).strip()
+                            if s.endswith(".0"):
+                                return s[:-2]
+                            return s
+                            
                         is_changed = False
                         for k, v in curr_dict.items():
                             orig_v = orig_dict.get(k)
-                            if str(v) != str(orig_v):
+                            if normalize_val(v) != normalize_val(orig_v):
                                 is_changed = True
                                 break
                         
@@ -192,18 +200,25 @@ class EventsPage:
                 # Clear cache to ensure dashboard/analysis reflects changes immediately
                 st.cache_data.clear()
                 
-                # Force editor refresh by clearing session state
-                if "event_editor" in st.session_state:
-                    del st.session_state["event_editor"]
-                
-                msg = f"""
-                ✅ **일정 반영 완료!**
-                - 💾 **저장/수정**: {count_saved}건 (변경됨)
-                - 🗑️ **삭제**: {len(deleted_ids)}건
-                """
-                if count_error > 0:
-                    msg += f"\n- ⚠️ **오류 발생**: {count_error}건 (저장 실패)"
-                    st.warning(msg)
+                # 통계와 팝업 토스트 추가 (MCP UI)
+                if count_saved == 0 and len(deleted_ids) == 0:
+                    st.toast("변경 사항이 없습니다.", icon="👀")
                 else:
-                    st.success(msg)
-                st.rerun()
+                    # Force editor refresh by clearing session state
+                    if "event_editor" in st.session_state:
+                         del st.session_state["event_editor"]
+                    
+                    st.toast(f"저장 성공: 변경 {count_saved}건, 삭제 {len(deleted_ids)}건 반영", icon="💾")
+                    
+                    msg = f"""
+                    ✅ **일정 반영 완료!**
+                    - 💾 **저장/수정**: {count_saved}건 (실제 변경됨)
+                    - 🗑️ **삭제**: {len(deleted_ids)}건
+                    """
+                    if count_error > 0:
+                        msg += f"\n- ⚠️ **오류 발생**: {count_error}건 (저장 실패)"
+                        st.warning(msg)
+                    else:
+                        st.success(msg)
+                    time.sleep(1)
+                    st.rerun()
